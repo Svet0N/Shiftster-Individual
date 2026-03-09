@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icons/icon-192.png" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=7" />
 
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.js"></script>
@@ -43,14 +43,12 @@
                 <button class="nav-btn" data-tab="calendar">Календар</button>
                 <button class="nav-btn" data-tab="history">История</button>
                 <button class="nav-btn" data-tab="charts">Графики</button>
-                <button class="nav-btn" data-tab="profile">Профил</button>
             </nav>
             <div class="topbar-actions">
-                <button id="darkToggle" class="icon-btn" title="Смени тема">🌙</button>
                 <button id="notifBtn" class="icon-btn" title="Известия">🔔</button>
-                <div class="avatar-wrap" id="avatarWrap">
+                <button class="avatar-wrap" id="avatarWrap" data-tab="profile" title="Профил">
                     <div class="user-avatar" id="topAvatar">?</div>
-                </div>
+                </button>
             </div>
         </header>
 
@@ -64,14 +62,39 @@
             <!-- ════════ DASHBOARD ════════ -->
             <section id="tab-dashboard" class="tab-section active">
                 <div class="section-header">
-                    <div>
-                        <h2>Табло</h2>
-                        <div class="month-badge" id="dashMonthLabel">—</div>
+                    <h2>Табло</h2>
+                    <div class="cal-nav">
+                        <button class="icon-btn" id="dashPrev">‹</button>
+                        <span class="month-badge" id="dashMonthLabel">—</span>
+                        <button class="icon-btn" id="dashNext">›</button>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-sm btn-outline" id="dashPrev">‹</button>
-                        <button class="btn btn-sm btn-outline" id="dashNext">›</button>
+                </div>
+
+                <!-- PLANNED SHIFT WIDGET -->
+                <div id="plannedWidget" class="glass-card"
+                    style="display:none; margin-bottom:1.5rem; border-color:var(--accent); position:relative; overflow:hidden">
+                    <div style="display:flex; flex-direction:column; gap:0.6rem">
+                        <div style="display:flex; align-items:center; gap:0.55rem">
+                            <span style="font-size:1.6rem">✨</span>
+                            <div>
+                                <h3 style="margin:0; font-size:1rem; color:var(--accent); font-weight:600">Потвърждение
+                                    за днес</h3>
+                                <p id="plannedWidgetText" style="margin:0; font-size:0.85rem; color:var(--text-dim)">
+                                </p>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:0.5rem; margin-top:0.4rem">
+                            <button class="btn btn-primary" id="btnConfirmPlanned" style="flex:2">✅ Потвърди
+                            </button>
+                            <button class="btn btn-outline" id="btnCorrectPlanned" style="flex:1">✏️ Коригирай</button>
+                        </div>
                     </div>
+                </div>
+
+                <!-- UNCONFIRMED SHIFTS BANNER -->
+                <div id="unconfirmedBanner" class="unconfirmed-banner" style="display:none">
+                    <div class="unconfirmed-text"></div>
+                    <div class="unconfirmed-actions"></div>
                 </div>
 
                 <div class="stats-grid" id="statsGrid">
@@ -85,13 +108,17 @@
                         <div class="stat-icon">💰</div>
                         <div class="stat-label">Изработена заплата</div>
                         <div class="stat-value" id="statSalary">0 лв.</div>
-                        <div class="stat-sub" id="statRateSub">при — лв./час</div>
+                        <div class="stat-sub" style="display:flex; justify-content:space-between">
+                            <span id="statRateSub">при — лв./час</span>
+                            <span id="statForecast" style="color:var(--accent); font-weight:600"
+                                title="Очакван доход (Актуално + Планирано)">+ 0 лв.</span>
+                        </div>
                     </div>
                     <div class="stat-card accent-amber" id="cardDays">
                         <div class="stat-icon">📅</div>
                         <div class="stat-label">Работни дни</div>
                         <div class="stat-value" id="statDays">0</div>
-                        <div class="stat-sub">дни с часове</div>
+                        <div class="stat-sub" id="statDaysSub">дни с часове</div>
                     </div>
                     <div class="stat-card accent-purple" id="cardAvg">
                         <div class="stat-icon">📊</div>
@@ -115,13 +142,8 @@
 
                 <div class="badges-row" id="badgesRow"></div>
 
-                <div class="filter-row">
+                <div class="filter-row" id="dashboardFilters">
                     <span class="filter-label">Филтър:</span>
-                    <button class="filter-chip active" data-filter="all">Всички</button>
-                    <button class="filter-chip" data-filter="6">6ч смени</button>
-                    <button class="filter-chip" data-filter="12">12ч смени</button>
-                    <button class="filter-chip" data-filter="weekend">Уикенд</button>
-                    <button class="filter-chip" data-filter="overtime">Извънреден</button>
                 </div>
 
                 <div class="glass-card chart-preview-card">
@@ -154,9 +176,9 @@
                     <div id="calGrid" class="cal-grid"></div>
                 </div>
                 <div class="cal-legend">
-                    <span class="legend-item"><span class="legend-dot worked"></span>Работен ден</span>
-                    <span class="legend-item"><span class="legend-dot today"></span>Днес</span>
-                    <span class="legend-item"><span class="legend-dot weekend"></span>Уикенд</span>
+                    <span class="legend-item"><span class="legend-dot worked"></span>Дневна смяна</span>
+                    <span class="legend-item"><span class="legend-dot night"></span>Нощна смяна</span>
+                    <span class="legend-item"><span class="legend-dot break"></span>С почивка</span>
                     <span class="legend-item"><span class="legend-dot overtime"></span>Извънреден</span>
                 </div>
             </section>
@@ -191,7 +213,7 @@
                         <div class="chart-container"><canvas id="salaryChart"></canvas></div>
                     </div>
                     <div class="chart-card glass-card">
-                        <h3 class="card-title">Разпределение на сменни типове</h3>
+                        <h3 class="card-title">Разпределение на смените</h3>
                         <div class="chart-container"><canvas id="shiftChart"></canvas></div>
                     </div>
                 </div>
@@ -203,10 +225,12 @@
                     <h2>Профил и настройки</h2>
                 </div>
                 <div class="profile-grid">
+                    <!-- 1. Profile Info -->
                     <div class="glass-card profile-card">
                         <div class="profile-avatar-wrap">
                             <div class="profile-avatar" id="profileAvatar">?</div>
-                            <button class="avatar-edit-btn" id="changeAvatarColor" title="Смени цвят">🎨</button>
+                            <input type="file" id="avatarFileInput" accept="image/*" hidden />
+                            <button class="avatar-edit-btn" id="triggerAvatarUpload" title="Качи снимка">📷</button>
                         </div>
                         <div class="profile-info">
                             <div class="profile-name" id="profileName">—</div>
@@ -215,6 +239,7 @@
                         </div>
                     </div>
 
+                    <!-- 2. Base Rate -->
                     <div class="glass-card settings-section">
                         <h3 class="settings-title">💰 Часова ставка</h3>
                         <div class="rate-display">
@@ -232,6 +257,49 @@
                         <div id="rateHistoryList" class="rate-history-list"></div>
                     </div>
 
+                    <!-- 3. Custom Shifts -->
+                    <div class="glass-card settings-section">
+                        <h3 class="settings-title">⚙️ Персонализирани смени</h3>
+                        <div class="field-group">
+                            <label>Нов шаблон (Име)</label>
+                            <input type="text" id="tplName" placeholder="напр. Първа смяна" />
+                        </div>
+                        <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+                            <div class="field-group" style="flex:1">
+                                <label>Начало</label>
+                                <input type="time" id="tplStart" value="08:00" />
+                            </div>
+                            <div class="field-group" style="flex:1">
+                                <label>Край</label>
+                                <input type="time" id="tplEnd" value="16:00" />
+                            </div>
+                        </div>
+
+                        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:flex-end">
+                            <div class="field-group" style="flex:1">
+                                <label>Почивка (мин)</label>
+                                <input type="number" id="tplBreak" min="0" placeholder="0" />
+                            </div>
+                            <div class="field-group" style="flex:1.5">
+                                <div class="segmented-control" style="margin-bottom:0">
+                                    <input type="radio" name="tplBreakType" id="tplBreakUnpaid" value="unpaid" checked>
+                                    <label for="tplBreakUnpaid" style="padding:0.4rem 0.25rem">Неплатена</label>
+                                    <input type="radio" name="tplBreakType" id="tplBreakPaid" value="paid">
+                                    <label for="tplBreakPaid" style="padding:0.4rem 0.25rem">Платена</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="field-group" style="margin-top:0.5rem">
+                            <label>Ставка за шаблона (лв./час)</label>
+                            <input type="number" id="tplRate" step="0.1" placeholder="По подразбиране" />
+                        </div>
+                        <button class="btn btn-primary btn-sm btn-full" id="saveTplBtn" style="margin-top:0.75rem">➕
+                            Добави шаблон</button>
+                        <div id="tplList" style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">
+                        </div>
+                    </div>
+
+                    <!-- 4. Monthly Goal -->
                     <div class="glass-card settings-section">
                         <h3 class="settings-title">🎯 Месечна цел</h3>
                         <div class="field-group">
@@ -243,6 +311,7 @@
                         </div>
                     </div>
 
+                    <!-- 5. Notifications -->
                     <div class="glass-card settings-section">
                         <h3 class="settings-title">🔔 Известия</h3>
                         <button class="btn btn-outline" id="enableNotifBtn">Активирай известия</button>
@@ -252,6 +321,18 @@
                         </div>
                     </div>
 
+                    <!-- 6. Theme Mode -->
+                    <div class="glass-card settings-section">
+                        <h3 class="settings-title">🌗 Режим на интерфейса</h3>
+                        <div class="segmented-control">
+                            <input type="radio" name="themeMode" id="themeDark" value="dark">
+                            <label for="themeDark">Тъмен</label>
+                            <input type="radio" name="themeMode" id="themeLight" value="light">
+                            <label for="themeLight">Светъл</label>
+                        </div>
+                    </div>
+
+                    <!-- 7. Accent Color -->
                     <div class="glass-card settings-section">
                         <h3 class="settings-title">🎨 Акцентен цвят</h3>
                         <div class="color-palette" id="colorPalette">
@@ -266,9 +347,10 @@
                         </div>
                     </div>
 
+                    <!-- 8. Logout -->
                     <div class="glass-card settings-section">
                         <h3 class="settings-title">⚙️ Акаунт</h3>
-                        <button class="btn btn-danger" id="logoutBtn">Излез от акаунта</button>
+                        <button class="btn btn-danger btn-full" id="logoutBtn">Излез от акаунта</button>
                     </div>
                 </div>
             </section>
@@ -278,24 +360,85 @@
     <!-- MODALS -->
     <div id="hourModal" class="modal-overlay" hidden>
         <div class="modal">
-            <h3 id="modalTitle">Добави часове</h3>
+            <div style="display:flex; align-items:center; gap:0.5rem">
+                <span id="modalThemeIcon" class="modal-header-icon icon-sun">☀️</span>
+                <h3 id="modalTitle" style="margin:0">Добави часове</h3>
+            </div>
             <p id="modalDate" class="modal-date"></p>
-            <div class="shift-tags">
-                <button class="shift-tag active" data-shift="normal">Нормален</button>
-                <button class="shift-tag" data-shift="overtime">Извънреден</button>
-                <button class="shift-tag" data-shift="weekend">Уикенд</button>
+            <!-- Quick templates -->
+            <div id="modalTemplates" class="modal-templates"></div>
+
+            <div class="time-range-picker">
+                <div class="time-field">
+                    <label for="shiftStart">🕐 Начало</label>
+                    <input type="time" id="shiftStart" />
+                </div>
+                <div class="time-arrow">→</div>
+                <div class="time-field">
+                    <label for="shiftEnd">🕑 Край</label>
+                    <input type="time" id="shiftEnd" />
+                </div>
             </div>
-            <div class="modal-options">
-                <button class="btn btn-primary hour-preset" data-hours="6">6ч</button>
-                <button class="btn btn-primary hour-preset" data-hours="8">8ч</button>
-                <button class="btn btn-primary hour-preset" data-hours="12">12ч</button>
+
+            <div class="modal-divider"></div>
+
+            <!-- BREAK SECTION -->
+            <div class="break-section">
+                <div class="break-header" id="breakToggleHeader">
+                    <span class="break-title">☕ Почивка</span>
+                    <button class="btn-toggle-section" id="breakExpandBtn">+</button>
+                </div>
+
+                <div id="breakCollapseContent" class="break-content" style="display:none">
+                    <div class="break-quick-select">
+                        <button class="btn-break-quick" data-min="15">15м</button>
+                        <button class="btn-break-quick" data-min="30">30м</button>
+                        <button class="btn-break-quick" data-min="45">45м</button>
+                        <button class="btn-break-quick" data-min="60">60м</button>
+                    </div>
+
+                    <div class="break-manual-row">
+                        <div class="field-group" style="flex:1">
+                            <label>Минути</label>
+                            <input type="number" id="breakMinutes" min="0" max="720" placeholder="0" />
+                        </div>
+                        <div class="break-type-toggle">
+                            <label>Тип</label>
+                            <div class="segmented-control">
+                                <input type="radio" name="breakType" id="breakUnpaid" value="unpaid" checked>
+                                <label for="breakUnpaid">Неплатена</label>
+                                <input type="radio" name="breakType" id="breakPaid" value="paid">
+                                <label for="breakPaid">Платена</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <p id="modalRateNote" class="modal-rate-note"
-                style="text-align:center; font-size:0.8rem; margin:1rem 0; opacity:0.8;"></p>
-            <div class="modal-custom">
-                <input type="number" id="customHours" min="0.5" max="24" step="0.5" placeholder="Друго" />
-                <button class="btn btn-outline" id="customSave">Запази</button>
+
+            <!-- RATE SECTION -->
+            <div class="break-section" style="margin-top:0.5rem">
+                <div class="break-header"
+                    onclick="let c=document.getElementById('rateSectionContent'); let b=document.getElementById('rateToggleBtn'); if(c.style.display==='none' || !c.style.display){c.style.display='flex'; b.textContent='−'}else{c.style.display='none'; b.textContent='+'}">
+                    <span class="break-title">💰 Ставка</span>
+                    <button class="btn-toggle-section" id="rateToggleBtn">+</button>
+                </div>
+                <!-- RATE BOX -->
+                <div id="rateSectionContent" class="break-content" style="display:none">
+                    <div class="break-manual-row">
+                        <div class="field-group" style="flex:1">
+                            <label>Лв. / Час</label>
+                            <input type="number" id="modalShiftRate" step="0.5" min="0" placeholder="0.00" />
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <div class="hours-preview" id="hoursPreview">
+                <span class="hours-preview-num" id="hoursPreviewNum">—</span>
+                <span class="hours-preview-label">часа</span>
+            </div>
+            <div id="breakPreviewText" class="break-preview-text" style="display:none"></div>
+            <button class="btn btn-primary btn-block" id="customSave">✓ Запази смяната</button>
             <div class="modal-footer">
                 <button class="btn btn-ghost" id="clearDay">🗑 Изчисти</button>
                 <button class="btn btn-ghost" id="closeModal">Отказ</button>
@@ -327,7 +470,7 @@
 
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="script.js" defer></script>
+    <script src="script.js?v=7" defer></script>
 </body>
 
 </html>

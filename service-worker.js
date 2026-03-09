@@ -3,9 +3,8 @@
  * Cache-First with Network-Update strategy
  */
 
-const CACHE = 'timeleger-v3';
+const CACHE = 'timeleger-v6';
 const PRECACHE = [
-  './',
   './index.html',
   './app.html',
   './style.css',
@@ -17,14 +16,26 @@ const PRECACHE = [
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.js',
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(PRECACHE.map(url => new Request(url, { mode: 'no-cors' }))))
-      .catch(err => console.warn('[SW] precache partial fail:', err))
+      .then(async c => {
+        console.log('[SW] Starting Precache...');
+        for (const url of PRECACHE) {
+          try {
+            const response = await fetch(url, { mode: 'no-cors' });
+            if (response) {
+              await c.put(url, response);
+              console.log('[SW] Precached successfully:', url);
+            }
+          } catch (err) {
+            console.error('[SW] CRITICAL FAIL for:', url, err);
+          }
+        }
+      })
       .then(() => self.skipWaiting())
   );
 });

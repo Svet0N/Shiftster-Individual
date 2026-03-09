@@ -28,8 +28,15 @@ CREATE TABLE work_entries (
   hours       numeric(5,2) NOT NULL,
   rate        numeric(6,2) NOT NULL,
   shift_type  text DEFAULT 'normal',
-  created_at  timestamptz DEFAULT now(),
-  UNIQUE(user_id, day_key)
+  shift_start text,
+  shift_end   text,
+  status      text DEFAULT 'actual',
+  planned_hours numeric(5,2),
+  break_minutes int DEFAULT 0,
+  break_is_paid boolean DEFAULT false,
+  is_night      boolean DEFAULT false,
+  parent_shift_id uuid, -- for linking split night shifts
+  created_at  timestamptz DEFAULT now()
 );
 
 ALTER TABLE work_entries ENABLE ROW LEVEL SECURITY;
@@ -46,7 +53,9 @@ CREATE TABLE user_profiles (
   monthly_goal int DEFAULT 160,
   role         text DEFAULT 'user',
   rate_history jsonb DEFAULT '[]',
+  custom_shifts jsonb DEFAULT '[]',
   notif_time   text DEFAULT '20:00',
+  dark_mode    boolean DEFAULT true,
   created_at   timestamptz DEFAULT now()
 );
 
