@@ -1,5 +1,5 @@
 /* =============================================
-   TimeLedger Pro — style.css
+   Shifster Solo — style.css
    Design: Dark glassmorphism, Outfit + JetBrains Mono
    ============================================= */
 
@@ -156,7 +156,7 @@ body::before {
   margin-bottom: 0.3rem;
 }
 
-.logo-pro {
+.logo-solo {
   background: linear-gradient(135deg, var(--accent), var(--purple));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;

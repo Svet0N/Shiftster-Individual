@@ -1,4 +1,4 @@
-# TimeLedger Pro 🕐
+# Shifster Solo 🕐
 
 > Проследяване на работни часове и заплата — PWA с Supabase Auth, multi-user, офлайн режим.
 

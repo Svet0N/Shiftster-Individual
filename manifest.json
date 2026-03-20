@@ -1,6 +1,6 @@
 {
-  "name": "TimeLedger Pro",
-  "short_name": "TimeLedger",
+  "name": "Shifster Solo",
+  "short_name": "Shifster",
   "description": "Проследявай работните си часове, заплата и цели.",
   "start_url": "./index.html",
   "display": "standalone",

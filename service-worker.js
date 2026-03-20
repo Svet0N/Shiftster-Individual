@@ -1,9 +1,9 @@
 /**
- * TimeLedger Pro — service-worker.js
+ * Shifster Solo — service-worker.js
  * Cache-First with Network-Update strategy
  */
 
-const CACHE = 'timeleger-v6';
+const CACHE = 'shifster-v1';
 const PRECACHE = [
   './index.html',
   './app.html',
@@ -70,7 +70,7 @@ self.addEventListener('fetch', e => {
 
 // Push notification support
 self.addEventListener('push', e => {
-  const data = e.data?.json() || { title: 'TimeLedger Pro', body: 'Ново известие' };
+  const data = e.data?.json() || { title: 'Shifster Solo', body: 'Ново известие' };
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,

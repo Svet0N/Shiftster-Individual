@@ -1,5 +1,5 @@
 /**
- * TimeLedger Pro — script.js
+ * Shifster Solo — script.js
  * ─────────────────────────────────────────────
  * Architecture:
  *   Auth    → Supabase Auth (email/password) OR Demo mode (localStorage)
@@ -97,8 +97,10 @@ const state = {
   activeFilter: 'all',
   activeShift: 'normal',  // for hour modal
   modalDay: null,
+  modalEditingId: null,
+  modalParentId: null,
 
-  // cached month entries: { "YYYY-MM-DD": { hours, rate, shift_type } }
+  // cached month entries: { "YYYY-MM-DD": [ { hours, rate, shift_type } ] }
   entries: {},
 
   charts: { bar: null, line: null, salary: null, shift: null, mini: null },
@@ -272,6 +274,40 @@ async function dbSetEntry(dayKey, hours, rate, shift_type, shift_start = '', shi
       await sb.from('work_entries').upsert(payload);
     }
   } catch (e) { console.warn('dbSetEntry sync failed:', e); }
+}
+
+async function dbDeleteShiftGroup(dayKey, id, parentId) {
+  const uid = state.user?.id || 'demo';
+  const [y, m] = dayKey.split('-').map(Number);
+  const entries = LS.loadEntries(uid, y, m - 1);
+
+  if (parentId) {
+    // Изтриване на всички части на нощната смяна локално в този месец
+    Object.keys(entries).forEach(dk => {
+      if (Array.isArray(entries[dk])) {
+        entries[dk] = entries[dk].filter(x => x.parent_shift_id !== parentId && x.id !== parentId);
+        if (entries[dk].length === 0) delete entries[dk];
+      }
+    });
+  } else {
+    // Изтриване на единична смяна локално
+    if (entries[dayKey]) {
+      entries[dayKey] = entries[dayKey].filter(x => x.id !== id);
+      if (entries[dayKey].length === 0) delete entries[dayKey];
+    }
+  }
+  LS.saveEntries(uid, y, m - 1, entries);
+
+  if (state.demoMode || !sb || !state.isOnline) return;
+  try {
+    if (parentId) {
+      await sb.from('work_entries').delete().eq('user_id', uid).or(`parent_shift_id.eq.${parentId},id.eq.${parentId}`);
+    } else {
+      await sb.from('work_entries').delete().eq('user_id', uid).eq('id', id);
+    }
+  } catch (e) {
+    console.error('dbDeleteShiftGroup error:', e);
+  }
 }
 
 async function dbClearMonth(year, month) {
@@ -533,7 +569,7 @@ async function logoutUser() {
 
 function enterDemoMode() {
   state.demoMode = true;
-  state.user = { id: 'demo', email: 'demo@timeledger.local' };
+  state.user = { id: 'demo', email: 'demo@shifster.local' };
   state.profile = {
     id: 'demo',
     full_name: 'Демо Потребител',
@@ -1084,7 +1120,12 @@ function updateHoursPreview() {
 function openHourModal(dk, dayNum) {
   state.modalDay = dk;
   const [y, m] = dk.split('-').map(Number);
-  const entry = state.entries[dk];
+  const dayArr = state.entries[dk] || [];
+  const entry = dayArr[0]; // Assuming for now we edit the first occurrence in this modal
+
+  state.modalEditingId = entry?.id || null;
+  state.modalParentId = entry?.parent_shift_id || null;
+
   const existingHours = entry?.hours || 0;
   const curShift = entry?.shift_type || 'normal';
 
@@ -1216,14 +1257,90 @@ function openHourModal(dk, dayNum) {
 function closeHourModal() {
   document.getElementById('hourModal').setAttribute('hidden', '');
   state.modalDay = null;
+  state.modalEditingId = null;
+  state.modalParentId = null;
+}
+
+/**
+ * Проверява за застъпване със съществуващи смени в state.entries.
+ */
+function isOverlapping(newShift, existingEntries) {
+  const intervals = [];
+  const [shN, smN] = (newShift.start || "").split(':').map(Number);
+  const [ehN, emN] = (newShift.end || "").split(':').map(Number);
+  if (isNaN(shN) || isNaN(ehN)) return null;
+
+  const startN = shN * 60 + smN;
+  let endN = ehN * 60 + emN;
+
+  // Дефиниране на интервалите за новата смяна (вкл. при разделяне в полунощ)
+  if (endN < startN || (endN === startN && startN !== 0)) {
+    intervals.push({ dk: newShift.dayKey, s: startN, e: 1440 });
+    const nd = new Date(newShift.dayKey);
+    nd.setDate(nd.getDate() + 1);
+    intervals.push({ dk: nd.toISOString().split('T')[0], s: 0, e: endN });
+  } else {
+    intervals.push({ dk: newShift.dayKey, s: startN, e: endN });
+  }
+
+  // Проверка за всеки от интервалите на новата смяна
+  for (const iv of intervals) {
+    const dayArr = existingEntries[iv.dk] || [];
+    for (const ext of dayArr) {
+      if (!ext.shift_start || !ext.shift_end) continue;
+      
+      // Пропускаме, ако е същата смяна, която редактираме (ID или ParentID за нощни смени)
+      if (newShift.id && (ext.id === newShift.id || ext.parent_shift_id === newShift.id)) continue;
+      if (newShift.parentId && (ext.id === newShift.parentId || ext.parent_shift_id === newShift.parentId)) continue;
+
+      const [shE, smE] = ext.shift_start.split(':').map(Number);
+      const [ehE, emE] = ext.shift_end.split(':').map(Number);
+      const startE = shE * 60 + smE;
+      const endE = ehE * 60 + emE;
+
+      // Формула за застъпване: max(s1, s2) < min(e1, e2)
+      // Позволява E1 == S2 (едната свършва, другата започва)
+      if (Math.max(iv.s, startE) < Math.min(iv.e, endE)) {
+        return ext;
+      }
+    }
+  }
+  return null;
 }
 
 async function saveHours() {
   const saveBtn = document.getElementById('customSave');
   if (!state.modalDay || saveBtn.disabled) return;
   const dk = state.modalDay;
-  const startVal = document.getElementById('shiftStart').value;
-  const endVal = document.getElementById('shiftEnd').value;
+  const startInp = document.getElementById('shiftStart');
+  const endInp = document.getElementById('shiftEnd');
+  
+  // Рестартиране на стиловете за грешка
+  startInp.style.borderColor = '';
+  endInp.style.borderColor = '';
+
+  const startVal = startInp.value;
+  const endVal = endInp.value;
+
+  // Проверка за застъпване преди всички други изчисления
+  const collision = isOverlapping({
+    dayKey: dk,
+    start: startVal,
+    end: endVal,
+    id: state.modalEditingId || null,
+    parentId: state.modalParentId || null
+  }, state.entries);
+
+  if (collision) {
+    const colTime = `${collision.shift_start} - ${collision.shift_end}`;
+    const collisionDay = collision.day_key && collision.day_key !== dk ? ` за ${collision.day_key}` : '';
+    toast(`⚠️ Внимание: Тази смяна се застъпва с вече съществуваща (${colTime}${collisionDay})!`, 'error');
+    
+    startInp.style.borderColor = 'var(--red)';
+    endInp.style.borderColor = 'var(--red)';
+    return;
+  }
+
   const totalHours = calcShiftHours(startVal, endVal);
 
   const breakMin = parseInt(document.getElementById('breakMinutes').value) || 0;
@@ -1242,6 +1359,11 @@ async function saveHours() {
   try {
     const todayStr = new Date().toISOString().split('T')[0];
     const uid = state.user?.id || 'demo';
+
+    // АКО Е РЕДАКЦИЯ: Първо изтриваме старата версия, за да не остават дубликати
+    if (state.modalEditingId) {
+      await dbDeleteShiftGroup(dk, state.modalEditingId, state.modalParentId);
+    }
 
     // Check if overnight
     const [sh, sm] = startVal.split(':').map(Number);
@@ -1740,7 +1862,7 @@ async function saveCustomShiftTemplate() {
   const editingId = btn.dataset.editingId;
 
   const breakMin = parseInt(document.getElementById('tplBreak').value) || 0;
-  const breakIsPaid = document.getElementById('tplBreakType').value === 'paid';
+  const breakIsPaid = document.querySelector('input[name="tplBreakType"]:checked').value === 'paid';
   const tplRate = parseFloat(document.getElementById('tplRate').value) || null;
 
   if (editingId) {
@@ -1859,7 +1981,7 @@ function exportPDF() {
     // Logo area
     doc.setTextColor(232, 232, 240);
     doc.setFontSize(20); doc.setFont('helvetica', 'bold');
-    doc.text('TimeLedger Pro', 14, 18);
+    doc.text('Shifster Solo', 14, 18);
     doc.setFontSize(9); doc.setFont('helvetica', 'normal');
     doc.setTextColor(119, 119, 170);
     doc.text(`Отчет за работни часове — ${monthName}`, 14, 27);
@@ -1940,7 +2062,7 @@ function exportXLSX() {
     const sorted = Object.keys(entries).sort();
 
     const wsData = [
-      ['TimeLedger Pro — Отчет за работни часове'],
+      ['Shifster Solo — Отчет за работни часове'],
       [`Месец: ${monthName}  |  Потребител: ${state.profile?.full_name || 'Потребител'}`],
       [],
       ['Дата', 'Часове', 'Ставка (лв./ч)', 'Заплата (лв.)', 'Тип смяна'],
@@ -2036,7 +2158,7 @@ function checkMissedDay() {
   const yk = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
   const entry = state.entries[yk];
   if (!entry || entry.hours <= 0) {
-    new Notification('TimeLedger Pro ⏱', {
+    new Notification('Shifster Solo ⏱', {
       body: `Не си добавил часове за ${yk}. Провери дали всичко е записано.`,
       icon: './icons/icon-192.png',
       badge: './icons/icon-192.png',
@@ -2469,7 +2591,7 @@ async function init() {
 
   if (isAppPage) {
     if (session?.user || isDemo) {
-      state.user = session?.user || { id: 'demo', email: 'demo@timeledger.local' };
+      state.user = session?.user || { id: 'demo', email: 'demo@shifster.local' };
       state.demoMode = isDemo;
       await bootApp();
     } else {
