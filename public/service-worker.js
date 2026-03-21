@@ -1,39 +1,28 @@
 /**
- * Shifster Solo — service-worker.js
+ * Shifster Individual — service-worker.js
  * Cache-First with Network-Update strategy
  */
 
 const CACHE = 'shifster-v1';
 const PRECACHE = [
-  './index.html',
-  './app.html',
-  './style.css',
-  './script.js',
-  './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.js',
+  '/',
+  '/index.html',
+  '/app.html',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
       .then(async c => {
-        console.log('[SW] Starting Precache...');
+        // Precache only local static files
         for (const url of PRECACHE) {
           try {
-            const response = await fetch(url, { mode: 'no-cors' });
-            if (response) {
-              await c.put(url, response);
-              console.log('[SW] Precached successfully:', url);
-            }
-          } catch (err) {
-            console.error('[SW] CRITICAL FAIL for:', url, err);
-          }
+            const response = await fetch(url);
+            if (response && response.ok) await c.put(url, response);
+          } catch (err) { /* silent fail */ }
         }
       })
       .then(() => self.skipWaiting())
@@ -50,7 +39,6 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  // Don't cache Supabase API calls
   if (e.request.url.includes('supabase.co')) return;
 
   e.respondWith(
@@ -63,14 +51,14 @@ self.addEventListener('fetch', e => {
         return response;
       }).catch(() => null);
 
-      return cached || fetchPromise.then(r => r || caches.match('./index.html'));
+      return cached || fetchPromise.then(r => r || caches.match('/index.html'));
     })
   );
 });
 
 // Push notification support
 self.addEventListener('push', e => {
-  const data = e.data?.json() || { title: 'Shifster Solo', body: 'Ново известие' };
+  const data = e.data?.json() || { title: 'Shifster Individual', body: 'Ново известие' };
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,

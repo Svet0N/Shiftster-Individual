@@ -166,11 +166,11 @@ const INDUSTRY_KNOWLEDGE = {
 let sb = null; // will be null if creds not set
 
 function initSupabase() {
-  if (SUPABASE_URL.includes('YOUR_PROJECT')) return;
+  if (!SUPABASE_URL || SUPABASE_URL.includes('YOUR_PROJECT')) return;
   try {
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } catch (e) {
-    console.warn('Supabase init failed:', e);
+    /* silent fail */
   }
 }
 
@@ -723,7 +723,7 @@ function showOnboarding() {
   }
 }
 
-window.onboardingSelectIndustry = function(id) {
+function onboardingSelectIndustry(id) {
   state._onboardingIndustry = id;
   const positions = INDUSTRY_KNOWLEDGE[id] ? Object.keys(INDUSTRY_KNOWLEDGE[id]) : ["Друга"];
   const list = document.getElementById('rolesList');
@@ -744,12 +744,12 @@ window.onboardingSelectIndustry = function(id) {
   }
 };
 
-window.onboardingBack = function() {
+function onboardingBack() {
   document.getElementById('onboardingStep2').setAttribute('hidden', '');
   document.getElementById('onboardingStep1').removeAttribute('hidden');
 };
 
-window.onboardingSelectRole = async function(posName) {
+async function onboardingSelectRole(posName) {
   const industryId = state._onboardingIndustry;
   const industryData = INDUSTRY_KNOWLEDGE[industryId] || {};
   const roleShifts = industryData[posName] || [];
@@ -3051,7 +3051,8 @@ window.openHourModal = openHourModal;
 window.closeHourModal = closeHourModal;
 window.onboardingSelectIndustry = onboardingSelectIndustry;
 window.onboardingSelectRole = onboardingSelectRole;
-window.onboardingStart = onboardingStart;
+window.showOnboarding = showOnboarding;
+window.onboardingBack = onboardingBack;
 window.saveHours = saveHours;
 window.saveGoal = saveGoal;
 window.saveRate = saveRate;
@@ -3062,4 +3063,3 @@ window.confirmReset = confirmReset;
 window.doReset = doReset;
 window.renderHistoryDetail = renderHistoryDetail;
 window.saveCustomShiftTemplate = saveCustomShiftTemplate;
-window.onboardingBack = onboardingBack;
