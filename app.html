@@ -38,8 +38,8 @@
         <!-- TOP BAR -->
         <header class="topbar">
             <div class="topbar-brand">
-                <img src="icons/logo.png" class="logo-desktop" alt="Shifster Logo">
-                <img src="icons/icon.png" class="logo-mobile" alt="Shifster Icon">
+                <img src="/icons/logo.png" class="logo-desktop" alt="Shifster Logo">
+                <img src="/icons/icon.png" class="logo-mobile" alt="Shifster Icon">
             </div>
             <nav class="topbar-nav" id="topNav">
                 <button class="nav-btn active" data-tab="dashboard">Табло</button>
@@ -122,7 +122,10 @@
                         <div class="stat-icon">⏰</div>
                         <div class="stat-label">Работни часове</div>
                         <div class="stat-value" id="statHours">0</div>
-                        <div class="stat-sub">за месеца</div>
+                        <div class="stat-sub" style="display:flex; justify-content:space-between">
+                            <span>за месеца</span>
+                            <span id="statExpectedHours" style="color:var(--accent); font-weight:600" title="Очаквани часове (бъдещи смени)">+ 0 ч.</span>
+                        </div>
                     </div>
                     <div class="stat-card accent-green" id="cardSalary">
                         <div class="stat-icon">💰</div>

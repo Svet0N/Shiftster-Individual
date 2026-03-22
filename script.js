@@ -166,11 +166,15 @@ const INDUSTRY_KNOWLEDGE = {
 let sb = null; // will be null if creds not set
 
 function initSupabase() {
-  if (!SUPABASE_URL || SUPABASE_URL.includes('YOUR_PROJECT')) return;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_URL.includes('YOUR_PROJECT') || !SUPABASE_URL.startsWith('https://')) {
+    console.warn('⚠️ Shifster: Supabase URL/Key missing or invalid. Running in local Demo mode.');
+    return;
+  }
   try {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Shifster: Supabase connected successfully.');
   } catch (e) {
-    /* silent fail */
+    console.error('❌ Shifster: Supabase connection failed:', e);
   }
 }
 
@@ -828,32 +832,35 @@ function applyAccentColor(color) {
 ═══════════════════════════════════════════ */
 async function renderDashboard() {
   const filtered = filterEntries(state.entries, state.activeFilter);
-  const total = sumHours(filtered);
   const salary = sumSalary(state.entries); // salary always from all entries (unfiltered)
   const days = countDays(filtered);
-  const avg = days > 0 ? total / days : 0;
   const forecast = calcForecast(state.entries);
-
-  // Генериране на Empty State ако няма записи за месеца
-  const dashWelcome = document.getElementById('dashWelcomeBanner');
-  if (dashWelcome) {
-    if (days === 0 && !state.demoMode) {
-      dashWelcome.style.display = 'flex';
-      const roleName = state.profile.position || 'твоята роля';
-      document.getElementById('welcomeRoleName').textContent = roleName;
-      
-      document.getElementById('btnStartFirstShift').onclick = () => {
-        switchTab('calendar');
-      };
-    } else {
-      dashWelcome.style.display = 'none';
-    }
-  }
-
-  // Night hours calculation
+  
+  // Split hours into Past and Future
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  let workedHours = 0;
+  let futureHours = 0;
   let nightHours = 0;
-  Object.values(state.entries).forEach(dayArr => {
+
+  Object.entries(filtered).forEach(([dateStr, dayArr]) => {
     dayArr.forEach(v => {
+      let hrs = v.hours || 0;
+      if (v.break_minutes > 0 && !v.break_is_paid) {
+        hrs = Math.max(0, hrs - (v.break_minutes / 60));
+      }
+
+      if (dateStr < todayStr) {
+        workedHours += hrs;
+      } else if (dateStr > todayStr) {
+        futureHours += hrs;
+      } else {
+        // TODAY: check time or just assume planned is future?
+        // Let's check status: if actual -> worked, if planned -> future
+        if (v.status === 'actual') workedHours += hrs;
+        else futureHours += hrs;
+      }
+
       if (v.is_night) {
         let nh = v.hours || 0;
         if (v.break_minutes > 0 && !v.break_is_paid) nh = Math.max(0, nh - (v.break_minutes / 60));
@@ -862,9 +869,46 @@ async function renderDashboard() {
     });
   });
 
-  animateValue(document.getElementById('statHours'), fmt(total));
-  document.getElementById('statHours').closest('.stat-card').querySelector('.stat-sub').innerHTML =
-    `за месеца ${nightHours > 0 ? `<span style="color:#b08bff" title="Общо нощни часове">| 🌙 ${fmt(nightHours)}ч</span>` : ''}`;
+  const totalMonthly = workedHours + futureHours;
+  const avg = days > 0 ? workedHours / days : 0;
+
+  // Генериране на Empty State ако няма записи за месеца
+  const dashWelcome = document.getElementById('dashWelcomeBanner');
+  if (dashWelcome) {
+    if (days === 0 && !state.demoMode) {
+      dashWelcome.style.display = 'flex';
+      const roleName = state.profile?.position || 'твоята роля';
+      const roleEl = document.getElementById('welcomeRoleName');
+      if (roleEl) roleEl.textContent = roleName;
+      
+      const startBtn = document.getElementById('btnStartFirstShift');
+      if (startBtn) {
+        startBtn.onclick = () => {
+          switchTab('calendar');
+        };
+      }
+    } else {
+      dashWelcome.style.display = 'none';
+    }
+  }
+
+  animateValue(document.getElementById('statHours'), fmt(workedHours));
+  
+  const expectedHoursEl = document.getElementById('statExpectedHours');
+  if (expectedHoursEl) {
+    expectedHoursEl.textContent = `+ ${fmt(futureHours)} ч.`;
+  }
+
+  const hoursSub = document.getElementById('statHours').closest('.stat-card').querySelector('.stat-sub');
+  if (hoursSub) {
+    hoursSub.innerHTML = `
+      <div style="display:flex; justify-content:space-between; width:100%">
+        <span>за месеца</span>
+        <span id="statExpectedHours" style="color:var(--accent); font-weight:600" title="Очаквани часове (бъдещи смени)">+ ${fmt(futureHours)} ч.</span>
+        ${nightHours > 0 ? `<span style="color:#b08bff" title="Общо нощни часове">| 🌙 ${fmt(nightHours)}ч</span>` : ''}
+      </div>
+    `;
+  }
 
   animateValue(document.getElementById('statSalary'), `${fmt(salary)} лв.`);
   animateValue(document.getElementById('statDays'), days);
@@ -875,8 +919,6 @@ async function renderDashboard() {
     forecastEl.textContent = `Очаквани: ${fmt(forecast)} лв.`;
   }
 
-  // Quick Confirm Widget Logic
-  const todayStr = new Date().toISOString().split('T')[0];
   const widget = document.getElementById('plannedWidget');
   const todayEntries = state.entries[todayStr] || [];
   const plannedEntry = todayEntries.find(v => v.status === 'planned' && (v.hours || 0) > 0);
@@ -925,8 +967,8 @@ async function renderDashboard() {
   document.getElementById('dashMonthLabel').textContent = `${MONTHS_BG[state.viewMonth]} ${state.viewYear}`;
 
   const nightCount = Object.values(state.entries).filter(dayArr => dayArr.some(v => v.is_night)).length;
-  renderGoalProgress(total);
-  renderBadges(total, days, nightCount);
+  renderGoalProgress(workedHours, totalMonthly);
+  renderBadges(workedHours, days, nightCount);
   renderMiniChart();
   checkUnconfirmedShifts();
 
@@ -1054,12 +1096,24 @@ window.confirmBulkShifts = async function (single) {
 };
 
 /* ── Goal Progress ── */
-function renderGoalProgress(total) {
+function renderGoalProgress(worked, forecast) {
   const goal = state.profile?.monthly_goal || 160;
-  const pct = Math.min(100, (total / goal) * 100);
-  document.getElementById('goalFill').style.width = pct + '%';
-  document.getElementById('goalPct').textContent = pct.toFixed(1) + '%';
-  document.getElementById('goalValue').textContent = `${fmt(total)} / ${goal} ч`;
+  const actualPct = Math.min(100, (worked / goal) * 100);
+  const forecastPct = Math.min(100, (forecast / goal) * 100);
+  
+  const fillActual = document.getElementById('goalFill');
+  const fillForecast = document.getElementById('goalFillForecast');
+  
+  if (fillActual) fillActual.style.width = actualPct + '%';
+  if (fillForecast) fillForecast.style.width = forecastPct + '%';
+  
+  document.getElementById('goalPct').textContent = actualPct.toFixed(1) + '%';
+  document.getElementById('goalValue').innerHTML = `
+    <span title="Вече потвърдени">${fmt(worked)}</span> 
+    <span style="color:var(--text-dim); padding:0 4px">/</span> 
+    ${goal} ч 
+    <span style="font-size:0.75rem; color:var(--accent); margin-left:8px">(Прогнозно: ${fmt(forecast)} ч)</span>
+  `;
 }
 
 /* ── Badges ── */
@@ -3052,7 +3106,6 @@ window.closeHourModal = closeHourModal;
 window.onboardingSelectIndustry = onboardingSelectIndustry;
 window.onboardingSelectRole = onboardingSelectRole;
 window.showOnboarding = showOnboarding;
-window.onboardingBack = onboardingBack;
 window.saveHours = saveHours;
 window.saveGoal = saveGoal;
 window.saveRate = saveRate;
@@ -3063,3 +3116,13 @@ window.confirmReset = confirmReset;
 window.doReset = doReset;
 window.renderHistoryDetail = renderHistoryDetail;
 window.saveCustomShiftTemplate = saveCustomShiftTemplate;
+
+// Разширени функции за конзолно дебъгване
+window.state = state;
+window.dbLoadEntries = dbLoadEntries;
+window.dbSetEntry = dbSetEntry;
+window.dbLoadProfile = dbLoadProfile;
+window.dbSaveProfile = dbSaveProfile;
+window.refreshAll = refreshAll;
+window.toast = toast;
+window.sb = sb; // Supabase Client access
