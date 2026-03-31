@@ -47,6 +47,25 @@
 'use strict';
 
 /* ═══════════════════════════════════════════
+   PREVENT FOUC & INITIAL REVEAL
+═══════════════════════════════════════════ */
+function revealApp() {
+  const style = document.createElement('style');
+  style.textContent = `
+    a { color: inherit; text-decoration: none; }
+    body { transition: opacity 0.3s ease; }
+  `;
+  document.head.appendChild(style);
+  document.body.style.opacity = "1";
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener("DOMContentLoaded", revealApp);
+} else {
+  revealApp();
+}
+
+/* ═══════════════════════════════════════════
    CONFIG — Environment Variables (Vercel)
 ═══════════════════════════════════════════ */
 /* ═══════════════════════════════════════════
@@ -166,7 +185,10 @@ const INDUSTRY_KNOWLEDGE = {
 let sb = null; // will be null if creds not set
 
 function initSupabase() {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_URL.includes('YOUR_PROJECT') || !SUPABASE_URL.startsWith('https://')) {
+  const isInvalidUrl = !SUPABASE_URL || SUPABASE_URL.includes('YOUR_PROJECT') || !SUPABASE_URL.startsWith('https://');
+  const isInvalidKey = !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('YOUR_');
+
+  if (isInvalidUrl || isInvalidKey) {
     console.warn('⚠️ Shifster: Supabase URL/Key missing or invalid. Running in local Demo mode.');
     return;
   }
@@ -664,16 +686,86 @@ function showAuthScreen() {
 function showApp() {
   const auth = document.getElementById('authScreen');
   const app = document.getElementById('appShell');
+  const wall = document.getElementById('subscriptionWall');
   if (auth) auth.style.display = 'none';
+  if (wall) wall.setAttribute('hidden', '');
   if (app) app.removeAttribute('hidden');
+}
+
+function showSubscriptionWall() {
+  const app = document.getElementById('appShell');
+  const wall = document.getElementById('subscriptionWall');
+  if (app) app.setAttribute('hidden', '');
+  if (wall) {
+    wall.removeAttribute('hidden');
+    wall.style.animation = 'slideUp 0.5s ease both';
+  }
 }
 
 /* ═══════════════════════════════════════════
    BOOT APP (after login)
 ═══════════════════════════════════════════ */
 async function bootApp() {
-  showApp();
   state.profile = await dbLoadProfile();
+
+  // ── STRIPE SUCCESS LOGIC ───────────────────────
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('session') === 'success') {
+    toast('Плащането е успешно! Вашият профил ще бъде активиран до минути.', 'success', 8000);
+    // Remove the ?session parameter cleanly from the URL without refreshing
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  // ── PRO ACCESS GATE ──────────────────────────────
+  const rawStatus = (state.profile?.subscription_status || '').toString().toLowerCase().trim();
+  const hasActiveSub = rawStatus === 'active';
+  const hasManualPro = state.profile?.is_pro === true;
+  const hasAccess = state.demoMode || hasActiveSub || hasManualPro;
+
+  if (!hasAccess) {
+    showSubscriptionWall();
+    
+    // 1. Wire Stripe Pricing Buttons
+    const userId = state.user?.id || '';
+    const pricingBtns = document.querySelectorAll('.pricing-btn');
+    if (pricingBtns.length >= 3) {
+      pricingBtns[0].onclick = () => window.location.href = `https://buy.stripe.com/3cIdR9bwF4VPeSIaUhfEk00?client_reference_id=${userId}`;
+      pricingBtns[1].onclick = () => window.location.href = `https://buy.stripe.com/00wcN57gp1JDeSI7I5fEk01?client_reference_id=${userId}`;
+      pricingBtns[2].onclick = () => window.location.href = `https://buy.stripe.com/bJe8wP3095ZTcKA5zXfEk02?client_reference_id=${userId}`;
+    }
+
+    // 2. Wire Subscription Logout Fix
+    const subLogout = document.getElementById('subLogoutBtn');
+    if (subLogout) {
+      subLogout.onclick = async () => {
+        if (sb) {
+          try { await sb.auth.signOut(); } catch(e){}
+        }
+        localStorage.removeItem(LS_PREFIX + 'token');
+        localStorage.removeItem(LS_PREFIX + 'demo');
+        window.location.replace('index.html');
+      };
+    }
+    
+    return; // STOP — don't load the full app
+  }
+  // ─────────────────────────────────────────────────
+
+  showApp();
+
+  // ── PRO UI STATE (Ако е влязъл, значи е платил) ──
+  const subBtnAnywhere = document.querySelector('.subscribe-btn, #subCTABtn'); // Търси какъвто и да е бутон "Абонирай се"
+  if (subBtnAnywhere) {
+    const parent = subBtnAnywhere.parentElement;
+    subBtnAnywhere.style.display = 'none'; // Скриваме бутона
+    
+    // Създаваме елегантно баджче "Pro Plan" на негово място
+    const proBadge = document.createElement('span');
+    proBadge.textContent = 'Pro Plan ✦';
+    proBadge.style.cssText = 'background: linear-gradient(135deg, #FFB347, #FF7B00); color: #fff; padding: 4px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 700; box-shadow: 0 2px 10px rgba(255,179,71,0.3); margin-left: auto;';
+    parent.appendChild(proBadge);
+  }
+
   
   // Задължителен Onboarding за нови потребители с липсваща индустрия
   const hasIndustry = state.profile.industry && state.profile.industry.trim().length > 0;

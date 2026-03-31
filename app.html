@@ -31,7 +31,94 @@
         rel="stylesheet" />
 </head>
 
-<body class="dark-mode">
+<body class="dark-mode" style="opacity: 0; background: #0e1832; margin: 0;">
+
+    <!-- ════ SUBSCRIPTION WALL (shown when is_pro = false) ════ -->
+    <div id="subscriptionWall" class="subscription-wall" hidden>
+      <div class="sub-header" style="text-align: center; margin-bottom: 2.5rem; animation: slideUp 0.6s ease both;">
+        <div class="sub-badge" style="margin-bottom: 1.25rem; display: inline-block;">✦ SHIFSTER INDIVIDUAL PRO</div>
+        <div class="sub-header-title-row">
+          <img src="/icons/logo.png" alt="Shifster" class="sub-header-logo" style="height: 52px; width: auto; max-width: 100%;">
+          <h1 class="sub-title" style="margin-bottom: 0;">Избери своя план</h1>
+        </div>
+        <p class="sub-subtitle">Твоят личен асистент за смени и заплати — без граници.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <!-- PLAN 1: MONTHLY -->
+        <div class="pricing-card" style="animation: slideUp 0.7s ease both;">
+          <h3 class="pricing-name">Месечен</h3>
+          <div class="pricing-price">
+            <span class="amount">3.49€</span>
+            <span class="period">/ месец</span>
+          </div>
+          <p class="pricing-desc">Гъвкаво и удобно начало.</p>
+          <ul class="pricing-features">
+            <li><span class="check">✅</span> Cloud Sync на данните ти</li>
+            <li><span class="check">✅</span> PDF & Excel месечни отчети</li>
+            <li><span class="check">✅</span> Пълна история на смените</li>
+            <li><span class="check">✅</span> Профил & Календар асистент</li>
+          </ul>
+          <button class="btn pricing-btn" onclick="alert('Системата за плащане се активира... 🔥')">Избери Месечен</button>
+        </div>
+
+        <!-- PLAN 2: QUARTERLY (POPULAR) -->
+        <div class="pricing-card popular" style="animation: slideUp 0.8s ease both;">
+          <div class="pricing-badge">Най-популярен</div>
+          <h3 class="pricing-name">Тримесечен</h3>
+          <div class="pricing-price">
+            <span class="amount">8.99€</span>
+            <span class="period">/ 3 месеца</span>
+          </div>
+          <p class="pricing-desc" style="color: #3ecf8e; font-weight: 600;">Спести 15%</p>
+          <ul class="pricing-features">
+            <li><span class="check">✅</span> Cloud Sync на данните ти</li>
+            <li><span class="check">✅</span> PDF & Excel месечни отчети</li>
+            <li><span class="check">✅</span> Пълна история на смените</li>
+            <li><span class="check">✅</span> Профил & Календар асистент</li>
+          </ul>
+          <button class="btn pricing-btn btn-gold" onclick="alert('Системата за плащане се активира... 🔥')">Избери Тримесечен</button>
+        </div>
+
+        <!-- PLAN 3: ANNUAL (BEST VALUE) -->
+        <div class="pricing-card best-value" style="animation: slideUp 0.9s ease both;">
+          <div class="pricing-badge badge-red">Най-изгодно</div>
+          <h3 class="pricing-name">Годишен</h3>
+          <div class="pricing-price">
+            <span class="amount">29.99€</span>
+            <span class="period">/ година</span>
+          </div>
+          <p class="pricing-desc" style="color: #3ecf8e; font-weight: 600;">Спести 28% спрямо месечния</p>
+          <ul class="pricing-features">
+            <li><span class="check">✅</span> Cloud Sync на данните ти</li>
+            <li><span class="check">✅</span> PDF & Excel месечни отчети</li>
+            <li><span class="check">✅</span> Пълна история на смените</li>
+            <li><span class="check">✅</span> Профил & Календар асистент</li>
+          </ul>
+          <button class="btn pricing-btn" onclick="alert('Системата за плащане се активира... 🔥')">Избери Годишен</button>
+        </div>
+      </div>
+
+      <div class="sub-footer">
+        <!-- Ниво 1 -->
+        <p class="sub-fine-print">Можеш да се откажеш по всяко време. Без изненади.</p>
+        
+        <!-- Ниво 2 -->
+        <div class="sub-legal-links">
+          <a href="#" class="legal-link">Условия за ползване</a>
+          <span class="legal-dot">•</span>
+          <a href="#" class="legal-link">Политика за поверителност</a>
+        </div>
+        
+        <!-- Ниво 3 -->
+        <button class="btn sub-logout-btn" id="subLogoutBtn">Излез от акаунта</button>
+        
+        <!-- Team Teaser -->
+        <div class="sub-coming-soon">
+          Shifster Team: Очаквайте скоро за вашия бизнес.
+        </div>
+      </div>
+    </div>
 
     <div id="appShell" class="app-shell">
 

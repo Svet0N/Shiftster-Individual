@@ -41,15 +41,15 @@
     rel="stylesheet" />
 </head>
 
-<body class="dark-mode">
+<body class="dark-mode" style="opacity: 0; background: #0e1832; margin: 0;">
 
-  <!-- ─── AUTH SCREEN ─── -->
+  <!-- ─── AUTH SCREEN (LOGIN ONLY) ─── -->
   <div id="authScreen" class="auth-screen">
     <div class="auth-card glass-card">
       <div class="auth-header">
-        <img src="icons/logo.png" alt="Shifster Logo" class="auth-logo-img">
+        <img src="/icons/logo.png" alt="Shifster Logo" class="auth-logo-img" width="80" height="80">
         <div class="auth-focus-text">
-          <h1>Shifster Individual</h1>
+          <h1>Влез в акаунта си</h1>
           <p>Твоят личен асистент за смени и заплати.</p>
         </div>
       </div>
@@ -72,8 +72,7 @@
             <input type="password" id="loginPassword" placeholder="Парола" autocomplete="current-password" />
           </div>
         </div>
-        <button class="btn btn-primary btn-full btn-lg" id="loginBtn">Влез в акаунта</button>
-        <button class="btn btn-ghost btn-full" id="demoBtn">🎭 Демо режим (без регистрация)</button>
+        <button class="btn btn-primary btn-full" id="loginBtn" style="margin-top:0.5rem;">Влез в профила</button>
       </div>
 
       <div id="authRegister" class="auth-form">
@@ -96,7 +95,7 @@
               autocomplete="new-password" />
           </div>
         </div>
-        <button class="btn btn-primary btn-full btn-lg" id="registerBtn">Създай акаунт</button>
+        <button class="btn btn-primary btn-full" id="registerBtn" style="margin-top:0.5rem;">Създай акаунт</button>
       </div>
 
       <div id="authMsg" class="auth-msg"></div>
@@ -105,8 +104,21 @@
         <button id="resendBtn" class="btn btn-ghost btn-sm">📩 Изпрати нов код за потвърждение</button>
       </div>
 
-      <div class="team-teaser">
-        <p>Имаш ресторант? <span>Shifster Team</span> очаквай скоро.</p>
+      <div class="sub-footer" style="margin-top: 30px;">
+        <!-- Ниво 1: Legal Links -->
+        <div class="sub-legal-links">
+          <a href="#" class="legal-link">Условия за ползване</a>
+          <span class="legal-dot">•</span>
+          <a href="#" class="legal-link">Политика за поверителност</a>
+        </div>
+        
+        <!-- Ниво 2: Demo Bypass -->
+        <button class="btn sub-logout-btn" id="demoBtn">👀 Разгледай демо</button>
+
+        <!-- Ниво 3: Team Teaser -->
+        <div class="sub-coming-soon">
+          Shifster Team: Очаквайте скоро за вашия бизнес.
+        </div>
       </div>
     </div>
   </div>
@@ -140,7 +152,7 @@
     </div>
   </div>
 
-  <script type="module" src="script.js?v=7"></script>
+  <script type="module" src="script.js"></script>
 </body>
 
 </html>
