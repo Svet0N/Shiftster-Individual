@@ -1200,12 +1200,20 @@ function renderGoalProgress(worked, forecast) {
   if (fillForecast) fillForecast.style.width = forecastPct + '%';
   
   document.getElementById('goalPct').textContent = actualPct.toFixed(1) + '%';
-  document.getElementById('goalValue').innerHTML = `
-    <span title="Вече потвърдени">${fmt(worked)}</span> 
-    <span style="color:var(--text-dim); padding:0 4px">/</span> 
-    ${goal} ч 
-    <span style="font-size:0.75rem; color:var(--accent); margin-left:8px">(Прогнозно: ${fmt(forecast)} ч)</span>
-  `;
+  
+  const container = document.getElementById('goalValueContainer');
+  if (container) {
+    container.innerHTML = `
+      <div class="goal-value-main">
+        <span title="Вече потвърдени">${fmt(worked)}</span> 
+        <span style="color:var(--text-dim); padding:0 4px; font-weight:400">/</span> 
+        ${goal} ч
+      </div>
+      <div class="goal-value-forecast">
+        Прогнозно: ${fmt(forecast)} ч
+      </div>
+    `;
+  }
 }
 
 /* ── Badges ── */

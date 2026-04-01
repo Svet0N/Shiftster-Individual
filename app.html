@@ -240,9 +240,16 @@
 
                 <div class="goal-section glass-card">
                     <div class="goal-header">
-                        <span>🎯 Месечна цел</span>
-                        <span class="goal-value" id="goalValue">0 / 0 ч</span>
-                        <button class="btn btn-sm btn-ghost" id="editGoalBtn">✏️ Промени</button>
+                        <div class="goal-title-wrap">
+                            <span class="goal-title-text">🎯 Месечна цел</span>
+                        </div>
+                        
+                        <div class="goal-actions-wrap">
+                            <div class="goal-stats-wrap" id="goalValueContainer">
+                                <!-- JS Inject Here -->
+                                <div class="goal-value-main">0 / 0 ч</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="progress-track">
                         <div class="progress-fill" id="goalFill" style="width:0%"></div>
