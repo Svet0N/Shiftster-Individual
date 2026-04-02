@@ -125,20 +125,51 @@
         <!-- TOP BAR -->
         <header class="topbar">
             <div class="topbar-brand">
-                <img src="/icons/logo.png" class="logo-desktop" alt="Shifster Logo">
-                <img src="/icons/icon.png" class="logo-mobile" alt="Shifster Icon">
+                <img src="/icons/logo-nav.png" class="logo-desktop" alt="Shifster Logo">
+                <img src="/icons/logo-nav.png" class="logo-mobile" alt="Shifster Icon">
             </div>
-            <nav class="topbar-nav" id="topNav">
-                <button class="nav-btn active" data-tab="dashboard">Табло</button>
-                <button class="nav-btn" data-tab="calendar">Календар</button>
-                <button class="nav-btn" data-tab="history">История</button>
-                <button class="nav-btn" data-tab="charts">Графики</button>
-            </nav>
+            <div style="flex: 1;"></div>
             <div class="topbar-actions">
                 <button id="notifBtn" class="icon-btn" title="Известия">🔔</button>
-                <button class="avatar-wrap" id="avatarWrap" data-tab="profile" title="Профил">
-                    <div class="user-avatar" id="topAvatar">?</div>
-                </button>
+                <div class="profile-container">
+                    <button class="avatar-wrap" id="avatarWrap" title="Профил">
+                        <div class="user-avatar" id="topAvatar">?</div>
+                    </button>
+                    <!-- Modern Profile Dropdown -->
+                    <div id="profileDropdown" class="profile-dropdown glass-card" hidden>
+                        <div class="dropdown-header">
+                            <div class="dropdown-avatar" id="dropdownAvatar">?</div>
+                            <div class="dropdown-user-info">
+                                <div class="dropdown-name" id="dropdownName">Потребител</div>
+                                <div class="dropdown-role" id="dropdownRole">Професионалист</div>
+                            </div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-menu">
+                            <button class="dropdown-item" data-tab="history">
+                                <span class="dropdown-icon">📜</span> 
+                                <span>История</span>
+                            </button>
+                            <button class="dropdown-item" data-tab="charts">
+                                <span class="dropdown-icon">📊</span> 
+                                <span>Графики и Анализи</span>
+                            </button>
+                            <button class="dropdown-item" data-tab="profile">
+                                <span class="dropdown-icon">⚙️</span> 
+                                <span>Настройки</span>
+                            </button>
+                            <button class="dropdown-item" data-tab="subscription">
+                                <span class="dropdown-icon">💳</span> 
+                                <span>Абонамент и Плащания</span>
+                            </button>
+                            <div class="dropdown-divider"></div>
+                            <button class="dropdown-item logout" id="dropdownLogout">
+                                <span class="dropdown-icon">🚪</span> 
+                                <span>Изход</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -149,12 +180,11 @@
 
         <main class="app-main">
 
-            <!-- ════════ DASHBOARD ════════ -->
+            <!-- ════════ DASHBOARD (ALL-IN-ONE) ════════ -->
             <section id="tab-dashboard" class="tab-section active">
                 <div class="section-header">
                     <div style="display:flex; align-items:center; gap:0.6rem">
-                        <h2>Табло</h2>
-                        <button class="btn btn-sm btn-ghost" onclick="startTutorial()" title="Стартирай туториал" style="font-size:1.1rem; opacity:0.5; padding:0 5px">❓</button>
+                        <h2 id="greetingLabel">Здравей! 👋</h2>
                     </div>
                     <div class="cal-nav">
                         <button class="icon-btn" id="dashPrev">‹</button>
@@ -230,11 +260,11 @@
                         <div class="stat-value" id="statDays">0</div>
                         <div class="stat-sub" id="statDaysSub">дни с часове</div>
                     </div>
-                    <div class="stat-card accent-purple" id="cardAvg">
-                        <div class="stat-icon">📊</div>
-                        <div class="stat-label">Среден дневен брой</div>
-                        <div class="stat-value" id="statAvg">0</div>
-                        <div class="stat-sub">часа / ден</div>
+                    <div class="stat-card accent-purple" id="cardNextShift">
+                        <div class="stat-icon">🔜</div>
+                        <div class="stat-label">Следваща смяна</div>
+                        <div class="stat-value" id="statNextShiftTime">—</div>
+                        <div class="stat-sub" id="statNextShiftDate">няма планирани</div>
                     </div>
                 </div>
 
@@ -257,40 +287,7 @@
                     <div class="goal-pct" id="goalPct">0%</div>
                 </div>
 
-                <div class="badges-row" id="badgesRow"></div>
 
-                <div class="filter-row" id="dashboardFilters">
-                    <span class="filter-label">Филтър:</span>
-                </div>
-
-                <div class="glass-card chart-preview-card">
-                    <h3 class="card-title">Часове тази седмица</h3>
-                    <div style="height:160px; position:relative; display:flex; align-items:center; justify-content:center;">
-                        <canvas id="weekMiniChart"></canvas>
-                        <div id="chartPlaceholderText" class="chart-placeholder" style="display:none">
-                            Тук ще видиш анализи, след като добавиш първите си часове.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="export-row">
-                    <button class="btn btn-outline" id="exportCSV">⬇ CSV</button>
-                    <button class="btn btn-outline" id="exportPDF">⬇ PDF</button>
-                    <button class="btn btn-outline" id="exportXLSX">⬇ Excel</button>
-                    <button class="btn btn-danger" id="resetMonth">🗑 Нулирай</button>
-                </div>
-            </section>
-
-            <!-- ════════ CALENDAR ════════ -->
-            <section id="tab-calendar" class="tab-section">
-                <div class="section-header">
-                    <h2>Календар</h2>
-                    <div class="cal-nav">
-                        <button class="icon-btn" id="prevMonth">‹</button>
-                        <span class="month-badge" id="calMonthLabel">—</span>
-                        <button class="icon-btn" id="nextMonth">›</button>
-                    </div>
-                </div>
                 <div class="calendar-wrap glass-card" id="calendarWrap">
                     <div class="cal-weekdays">
                         <span>Пон</span><span>Вт</span><span>Ср</span><span>Чет</span><span>Пет</span><span>Съб</span><span>Нед</span>
@@ -303,12 +300,16 @@
                     <span class="legend-item"><span class="legend-dot break"></span>С почивка</span>
                     <span class="legend-item"><span class="legend-dot overtime"></span>Извънреден</span>
                 </div>
+
             </section>
 
             <!-- ════════ HISTORY ════════ -->
             <section id="tab-history" class="tab-section">
                 <div class="section-header">
-                    <h2>История</h2>
+                    <div style="display:flex; align-items:center; gap:0.5rem">
+                        <button class="icon-btn" onclick="switchTab('dashboard')" title="Назад към таблото">‹</button>
+                        <h2>История</h2>
+                    </div>
                     <select id="historySelect" class="month-select"></select>
                 </div>
                 <div id="historyDetail" class="history-detail glass-card">
@@ -319,7 +320,31 @@
             <!-- ════════ CHARTS ════════ -->
             <section id="tab-charts" class="tab-section">
                 <div class="section-header">
-                    <h2>Графики</h2>
+                    <div style="display:flex; align-items:center; gap:0.5rem">
+                        <button class="icon-btn" onclick="switchTab('dashboard')" title="Назад към таблото">‹</button>
+                        <h2>Графики</h2>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-sm btn-outline" id="exportCSV">⬇ CSV</button>
+                        <button class="btn btn-sm btn-outline" id="exportPDF">⬇ PDF</button>
+                        <button class="btn btn-sm btn-outline" id="exportXLSX">⬇ Excel</button>
+                    </div>
+                </div>
+
+                <div class="badges-row" id="badgesRow" style="margin-bottom: 1.5rem;"></div>
+
+                <div class="filter-row" id="dashboardFilters" style="margin-bottom: 1.5rem;">
+                    <span class="filter-label">Филтър:</span>
+                </div>
+
+                <div class="glass-card chart-preview-card" style="margin-bottom: 2rem;">
+                    <h3 class="card-title">Часове тази седмица</h3>
+                    <div style="height:200px; position:relative; display:flex; align-items:center; justify-content:center;">
+                        <canvas id="weekMiniChart"></canvas>
+                        <div id="chartPlaceholderText" class="chart-placeholder" style="display:none">
+                            Тук ще видиш анализи, след като добавиш първите си часове.
+                        </div>
+                    </div>
                 </div>
                 <div class="charts-grid">
                     <div class="chart-card glass-card">
@@ -344,7 +369,10 @@
             <!-- ════════ PROFILE ════════ -->
             <section id="tab-profile" class="tab-section">
                 <div class="section-header">
-                    <h2>Профил и настройки</h2>
+                    <div style="display:flex; align-items:center; gap:0.5rem">
+                        <button class="icon-btn" onclick="switchTab('dashboard')" title="Назад към таблото">‹</button>
+                        <h2>Профил и настройки</h2>
+                    </div>
                 </div>
                 <div class="profile-grid">
                     <!-- 1. Profile Info -->
@@ -363,16 +391,24 @@
 
                     <!-- 2. Base Rate -->
                     <div class="glass-card settings-section">
-                        <h3 class="settings-title">💰 Часова ставка</h3>
+                        <h3 class="settings-title">💰 Часова ставка и Валута</h3>
                         <div class="rate-display">
                             <span class="rate-current" id="currentRateDisplay">11 лв./час</span>
                             <span class="rate-badge">Текуща</span>
                         </div>
                         <div class="field-group">
-                            <label>Нова часова ставка (лв./час)</label>
-                            <div style="display:flex;gap:.5rem">
-                                <input type="number" id="newRateInput" min="1" max="9999" step="0.5"
-                                    placeholder="напр. 13.50" />
+                            <label>Нова часова ставка и Валута</label>
+                            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                                <input type="number" id="newRateInput" min="0" max="9999" step="0.5"
+                                    placeholder="напр. 13.50" style="flex:1;min-width:120px" />
+                                <select id="profileCurrency" class="input-field" style="width:auto;min-width:100px">
+                                    <option value="лв.">лв. (BGN)</option>
+                                    <option value="€">€ (EUR)</option>
+                                    <option value="$">$ (USD)</option>
+                                    <option value="£">£ (GBP)</option>
+                                    <option value="₽">₽ (RUB)</option>
+                                    <option value="CHF">CHF</option>
+                                </select>
                                 <button class="btn btn-primary" id="saveRateBtn">Запази</button>
                             </div>
                         </div>
@@ -412,8 +448,19 @@
                             </div>
                         </div>
                         <div class="field-group" style="margin-top:0.5rem">
-                            <label>Ставка за шаблона (лв./час)</label>
-                            <input type="number" id="tplRate" step="0.1" placeholder="По подразбиране" />
+                            <label>Ставка за шаблона и Валута</label>
+                            <div style="display:flex; gap:0.5rem">
+                                <input type="number" id="tplRate" step="0.1" placeholder="По подразбиране" style="flex:2" />
+                                <select id="tplCurrency" class="input-field" style="flex:1">
+                                    <option value="">По подр.</option>
+                                    <option value="лв.">лв.</option>
+                                    <option value="€">€</option>
+                                    <option value="$">$</option>
+                                    <option value="£">£</option>
+                                    <option value="₽">₽</option>
+                                    <option value="CHF">CHF</option>
+                                </select>
+                            </div>
                         </div>
                         <button class="btn btn-primary btn-sm btn-full" id="saveTplBtn" style="margin-top:0.75rem">➕
                             Добави шаблон</button>
@@ -476,6 +523,53 @@
                     </div>
                 </div>
             </section>
+
+            <!-- ════════ SUBSCRIPTION ════════ -->
+            <section id="tab-subscription" class="tab-section">
+                <div class="section-header">
+                    <div style="display:flex; align-items:center; gap:0.5rem">
+                        <button class="icon-btn" onclick="switchTab('dashboard')" title="Назад към таблото">‹</button>
+                        <h2>Абонамент и Плащания</h2>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="subLoadingState" style="text-align:center; margin-top:2rem; color:var(--text-dim)">(Зареждане на статус...)</div>
+
+                <!-- Active Plan Panel -->
+                <div id="subActivePanel" class="glass-card" style="display:none; text-align:center;">
+                    <div style="font-size:3rem; margin-bottom:1rem;">✅</div>
+                    <h3>Имаш активен PRO абонамент</h3>
+                    <p style="color:var(--text-dim); margin-bottom:2rem;">Всички функции са отключени и данните ти се синхронизират сигурно в облака.</p>
+                    <button id="btnManageSub" class="btn btn-primary" style="margin:0 auto;">Управление на абонамента в Stripe</button>
+                </div>
+
+                <!-- Inactive Plan Panel -->
+                <div id="subInactivePanel" class="glass-card" style="display:none;">
+                    <h3 style="text-align:center; margin-bottom:1rem">Абонаментът ти не е активен.</h3>
+                    <p style="text-align:center; color:var(--text-dim); margin-bottom:2rem;">Избери план, за да отключиш облачната синхронизация и месечните отчети.</p>
+                    
+                    <div class="pricing-grid" id="pricingGridInside" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                        <!-- Plans will just trigger stripe-checkout -->
+                        <div class="pricing-card">
+                            <h3 class="pricing-name">Месечен</h3>
+                            <div class="pricing-price"><span class="amount">3.49€</span></div>
+                            <button class="btn btn-primary btn-block" onclick="startStripeCheckout('price_1TH6RQHNe4aibXKrVGpW404X')">Избери Месечен</button>
+                        </div>
+                        <div class="pricing-card popular" style="border-color:#ffb347">
+                            <h3 class="pricing-name">Тримесечен</h3>
+                            <div class="pricing-price"><span class="amount">8.99€</span></div>
+                            <button class="btn btn-gold btn-block" onclick="startStripeCheckout('price_1TGkxYHulWTUqvaPey9rT7Cs')">Избери Тримесечен</button>
+                        </div>
+                        <div class="pricing-card best-value" style="border-color:#ff6b6b">
+                            <h3 class="pricing-name">Годишен</h3>
+                            <div class="pricing-price"><span class="amount">29.99€</span></div>
+                            <button class="btn btn-danger btn-block" onclick="startStripeCheckout('price_1TGkxzHulWTUqvaPStVOm6qh')">Избери Годишен</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
 
@@ -541,15 +635,26 @@
             <div class="break-section" style="margin-top:0.5rem">
                 <div class="break-header"
                     onclick="let c=document.getElementById('rateSectionContent'); let b=document.getElementById('rateToggleBtn'); if(c.style.display==='none' || !c.style.display){c.style.display='flex'; b.textContent='−'}else{c.style.display='none'; b.textContent='+'}">
-                    <span class="break-title">💰 Ставка</span>
+                    <span class="break-title">💰 Ставка и Валута</span>
                     <button class="btn-toggle-section" id="rateToggleBtn">+</button>
                 </div>
                 <!-- RATE BOX -->
                 <div id="rateSectionContent" class="break-content" style="display:none">
                     <div class="break-manual-row">
-                        <div class="field-group" style="flex:1">
-                            <label>Лв. / Час</label>
+                        <div class="field-group" style="flex:2">
+                            <label>Сума / Час</label>
                             <input type="number" id="modalShiftRate" step="0.5" min="0" placeholder="0.00" />
+                        </div>
+                        <div class="field-group" style="flex:1">
+                            <label>Валута</label>
+                            <select id="modalShiftCurrency" class="input-field">
+                                <option value="лв.">лв.</option>
+                                <option value="€">€</option>
+                                <option value="$">$</option>
+                                <option value="£">£</option>
+                                <option value="₽">₽</option>
+                                <option value="CHF">CHF</option>
+                            </select>
                         </div>
                     </div>
                 </div>

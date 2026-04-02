@@ -471,7 +471,7 @@ body::before {
 .pricing-card {
   flex: 1;
   width: 100%;
-  max-width: 320px;
+  max-width: 340px;
   background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(30px) saturate(1.8);
   -webkit-backdrop-filter: blur(30px) saturate(1.8);
@@ -729,7 +729,7 @@ body.light-mode .topbar {
 }
 
 .logo-desktop {
-  height: 40px;
+  height: 48px;
   width: auto;
   display: block;
 }
@@ -741,9 +741,10 @@ body.light-mode .topbar {
   .logo-desktop { display: none; }
   .logo-mobile {
     display: block;
-    height: 32px;
-    width: 32px;
-    border-radius: 8px; /* Овални ъгли за иконата */
+    height: 38px;
+    width: auto;
+    max-width: 160px;
+    object-fit: contain;
   }
 }
 
@@ -950,7 +951,7 @@ body.light-mode .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
@@ -960,7 +961,7 @@ body.light-mode .topbar {
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1;
-  margin-bottom: 0.3rem;
+  margin: 0;
 }
 
 .header-actions {
@@ -969,15 +970,17 @@ body.light-mode .topbar {
 }
 
 .month-badge {
-  display: inline-block;
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  font-weight: 500;
-  background: var(--surface);
+  background: var(--surface-solid);
   border: 1px solid var(--border);
-  padding: 0.25rem 0.7rem;
+  padding: 0.35rem 1rem;
   border-radius: 99px;
-  letter-spacing: 0.04em;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 120px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 
 /* ═══════════════════════════════════════
@@ -1431,6 +1434,133 @@ body.light-mode .topbar {
 .calendar-wrap {
   overflow: hidden;
   padding: 0;
+  margin-top: 1.5rem;
+}
+
+/* ═══════════════════════════════════════════
+   PROFILE DROPDOWN
+   ═══════════════════════════════════════════ */
+.profile-container {
+  position: relative;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 260px;
+  background: rgba(14, 24, 50, 0.95);
+  backdrop-filter: blur(40px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  padding: 1.25rem;
+  z-index: 2000;
+  opacity: 0;
+  transform: translateY(10px) scale(0.95);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.profile-dropdown.active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.dropdown-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background-size: cover;
+  background-position: center;
+}
+
+.dropdown-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dropdown-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-role {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0.75rem -1.25rem;
+}
+
+.dropdown-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(4px);
+}
+
+.dropdown-item.logout {
+  color: var(--red);
+}
+
+.dropdown-item.logout:hover {
+  background: rgba(255, 92, 122, 0.08);
+}
+
+.dropdown-icon {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
 }
 
 .cal-weekdays {
@@ -2093,6 +2223,39 @@ input:focus {
 
 body.light-mode input {
   background: rgba(0, 0, 0, 0.04);
+}
+
+select.input-field {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237777aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-left: 0.85rem;
+  padding-right: 2.25rem;
+  height: 42px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  outline: none;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+select.input-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+}
+
+body.light-mode select.input-field {
+  background-color: rgba(0, 0, 0, 0.04);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235555aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+select.input-field option {
+  background: var(--bg2);
+  color: var(--text);
 }
 
 /* ═══════════════════════════════════════

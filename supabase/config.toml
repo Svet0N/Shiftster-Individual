@@ -1,0 +1,15 @@
+
+[functions.stripe-portal]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/stripe-portal/index.ts"
+
+[functions.stripe-checkout]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/stripe-checkout/index.ts"
+
+[functions.stripe-webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/stripe-webhook/index.ts"
