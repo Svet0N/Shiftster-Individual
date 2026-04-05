@@ -317,13 +317,15 @@ async function dbSetEntry(dayKey, hours, rate, shift_type, shift_start = '', shi
   const [y, m] = dayKey.split('-').map(Number);
   const entries = LS.loadEntries(uid, y, m - 1);
 
+  const isFlatShift = (shift_type === 'flat');
   const id = existingId || getUUID();
-  const entry = { id, hours, rate, shift_type, shift_start, shift_end, status, planned_hours: ph, break_minutes, break_is_paid, is_night, parent_shift_id: parentId, template_name, currency_code: currency_code || state.profile?.currency_code || 'лв.' };
+  const entry = { id, hours, rate, shift_type, shift_start, shift_end, status, planned_hours: ph, break_minutes, break_is_paid, is_night, parent_shift_id: parentId, template_name, currency_code: currency_code || state.profile?.currency_code || 'лв.', shift_mode: isFlatShift ? 'flat' : 'hourly' };
 
-  if (hours === 0 && !existingId) {
-    // legacy behavior: delete whole day if no ID provided
+  if (hours === 0 && !isFlatShift && !existingId) {
+    // Legacy delete: clear whole day (only for non-flat, no specific ID)
     delete entries[dayKey];
-  } else if (hours === 0 && existingId) {
+  } else if (hours === 0 && !isFlatShift && existingId) {
+    // Delete single entry by id
     if (entries[dayKey]) {
       entries[dayKey] = entries[dayKey].filter(x => x.id !== existingId);
       if (entries[dayKey].length === 0) delete entries[dayKey];
@@ -338,7 +340,8 @@ async function dbSetEntry(dayKey, hours, rate, shift_type, shift_start = '', shi
 
   if (state.demoMode || !sb || !state.isOnline) return;
   try {
-    if (hours === 0) {
+    if (hours === 0 && !isFlatShift) {
+      // Delete: only for non-flat zero-hour entries
       if (existingId) {
         await sb.from('work_entries').delete().eq('user_id', uid).eq('id', existingId);
       } else {
@@ -349,10 +352,10 @@ async function dbSetEntry(dayKey, hours, rate, shift_type, shift_start = '', shi
         user_id: uid, day_key: dayKey, hours, rate,
         shift_type, shift_start, shift_end, status,
         planned_hours: ph, break_minutes, break_is_paid,
-        is_night, parent_shift_id: parentId, template_name,
-        currency_code: currency_code || state.profile?.currency_code || 'лв.'
+        is_night, parent_shift_id: parentId, template_name
       };
       if (existingId) payload.id = existingId;
+      else payload.id = id;
       await sb.from('work_entries').upsert(payload);
     }
   } catch (e) { console.warn('dbSetEntry sync failed:', e); }
@@ -453,7 +456,10 @@ async function dbSaveProfile(updates) {
 
   if (state.demoMode || !sb || !state.isOnline) return;
   try {
-    const dbUpdates = { ...updates, id: uid };
+    // Exclude avatar_url from DB sync — base64 is too large for the column.
+    // It is stored locally in localStorage only.
+    const { avatar_url: _av, ...safeUpdates } = updates;
+    const dbUpdates = { ...safeUpdates, id: uid };
     if (Object.keys(dbUpdates).length > 1) { // more than just 'id'
       await sb.from('user_profiles').upsert(dbUpdates);
     }
@@ -728,7 +734,7 @@ async function bootApp() {
 
   if (!hasAccess) {
     showSubscriptionWall();
-    
+
     // 1. Wire Stripe Pricing Buttons
     const userId = state.user?.id || '';
     const pricingBtns = document.querySelectorAll('.pricing-btn');
@@ -743,14 +749,14 @@ async function bootApp() {
     if (subLogout) {
       subLogout.onclick = async () => {
         if (sb) {
-          try { await sb.auth.signOut(); } catch(e){}
+          try { await sb.auth.signOut(); } catch (e) { }
         }
         localStorage.removeItem(LS_PREFIX + 'token');
         localStorage.removeItem(LS_PREFIX + 'demo');
         window.location.replace('index.html');
       };
     }
-    
+
     return; // STOP — don't load the full app
   }
   // ─────────────────────────────────────────────────
@@ -762,7 +768,7 @@ async function bootApp() {
   if (subBtnAnywhere) {
     const parent = subBtnAnywhere.parentElement;
     subBtnAnywhere.style.display = 'none'; // Скриваме бутона
-    
+
     // Създаваме елегантно баджче "Pro Plan" на негово място
     const proBadge = document.createElement('span');
     proBadge.textContent = 'Pro Plan ✦';
@@ -770,7 +776,7 @@ async function bootApp() {
     parent.appendChild(proBadge);
   }
 
-  
+
   // Задължителен Onboarding за нови потребители с липсваща индустрия
   const hasIndustry = state.profile.industry && state.profile.industry.trim().length > 0;
   if (!hasIndustry && !state.demoMode && window.location.pathname.includes('app.html')) {
@@ -795,13 +801,13 @@ async function loadCurrentEntries() {
 function showOnboarding() {
   const overlay = document.getElementById('onboardingOverlay');
   if (!overlay) return;
-  
+
   overlay.style.opacity = '0';
   overlay.removeAttribute('hidden');
   void overlay.offsetWidth; // Trigger reflow
   overlay.style.transition = 'opacity 0.5s ease';
   overlay.style.opacity = '1';
-  
+
   const grid = document.getElementById('industryGrid');
   if (grid) {
     const industries = [
@@ -829,14 +835,14 @@ function onboardingSelectIndustry(id) {
   const list = document.getElementById('rolesList');
   const step1 = document.getElementById('onboardingStep1');
   const step2 = document.getElementById('onboardingStep2');
-  
+
   if (list) {
     list.innerHTML = positions.map(posName => `
       <button class="btn btn-primary btn-full onboarding-role-btn" 
               onclick="onboardingSelectRole('${posName}')">${posName}</button>
     `).join('');
   }
-  
+
   if (step1) step1.setAttribute('hidden', '');
   if (step2) {
     step2.removeAttribute('hidden');
@@ -853,7 +859,7 @@ async function onboardingSelectRole(posName) {
   const industryId = state._onboardingIndustry;
   const industryData = INDUSTRY_KNOWLEDGE[industryId] || {};
   const roleShifts = industryData[posName] || [];
-  
+
   const btn = document.querySelector(`.onboarding-role-btn[onclick*="${posName}"]`);
   if (btn) btn.innerHTML = '<span class="spinner"></span>';
 
@@ -874,12 +880,12 @@ async function onboardingSelectRole(posName) {
       position: posName,
       custom_shifts: templates
     };
-    
+
     // Save to user_profiles (existing logic)
     await dbSaveProfile(updates);
-    
+
     state.profile = { ...state.profile, ...updates };
-    
+
     // Smooth hide
     const overlay = document.getElementById('onboardingOverlay');
     overlay.style.opacity = '0';
@@ -890,13 +896,13 @@ async function onboardingSelectRole(posName) {
 
     renderProfile();
     await refreshAll();
-    
+
     // Незабавен старт на туториала след избиране на роля
     const settings = LS.loadSettings();
     if (!settings.tutorial_done) {
-        startTutorial();
+      startTutorial();
     }
-    
+
     toast('Готово! Твоите шаблони са заредени 🚀', 'success');
   } catch (e) {
     console.error(e);
@@ -927,179 +933,101 @@ function applyAccentColor(color) {
    DASHBOARD
 ═══════════════════════════════════════════ */
 async function renderDashboard() {
-  const filtered = filterEntries(state.entries, state.activeFilter);
-  const salary = sumSalary(state.entries); // salary always from all entries (unfiltered)
-  const days = countDays(filtered);
-  const forecast = calcForecast(state.entries);
-  
-  // Split hours into Past and Future
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
-  let workedHours = 0;
-  let futureHours = 0;
-  let nightHours = 0;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { viewYear, viewMonth } = state;
+  const currentEntries = await dbLoadEntries(viewYear, viewMonth);
+  const financials = calculateFinancials(currentEntries);
 
-  const actualByCurrency = {};
-  const plannedByCurrency = {};
-
-  Object.entries(filtered).forEach(([dateStr, dayArr]) => {
-    dayArr.forEach(v => {
-      let hrs = v.hours || 0;
-      if (v.break_minutes > 0 && !v.break_is_paid) {
-        hrs = Math.max(0, hrs - (v.break_minutes / 60));
-      }
-
-      const isActual = (dateStr < todayStr) || (dateStr === todayStr && v.status === 'actual');
-      
-      if (dateStr < todayStr) {
-        workedHours += hrs;
-      } else if (dateStr > todayStr) {
-        futureHours += hrs;
-      } else {
-        if (v.status === 'actual') workedHours += hrs;
-        else futureHours += hrs;
-      }
-
-      if (v.is_night) {
-        let nh = v.hours || 0;
-        if (v.break_minutes > 0 && !v.break_is_paid) nh = Math.max(0, nh - (v.break_minutes / 60));
-        nightHours += nh;
-      }
-
-      const rate = v.rate || v.hourly_rate || DEFAULT_RATE;
-      const cur = v.currency_code || 'лв.';
-      
-      const entryTotal = hrs * rate;
-      if (isActual) {
-        actualByCurrency[cur] = (actualByCurrency[cur] || 0) + entryTotal;
-      }
-      // 'Expected' is ALWAYS the full monthly total (Past + Future)
-      plannedByCurrency[cur] = (plannedByCurrency[cur] || 0) + entryTotal;
-    });
-  });
-
-  const totalMonthly = workedHours + futureHours;
-  const avg = days > 0 ? workedHours / days : 0;
-
-  // Генериране на Empty State ако няма записи за месеца (нито актуални, нито планирани)
-  const totalEntriesCount = Object.keys(state.entries).length;
   const dashWelcome = document.getElementById('dashWelcomeBanner');
   if (dashWelcome) {
+    const totalEntriesCount = Object.keys(state.entries).length;
     if (totalEntriesCount === 0 && !state.demoMode) {
       dashWelcome.style.display = 'flex';
       const roleName = state.profile?.position || 'твоята роля';
       const roleEl = document.getElementById('welcomeRoleName');
       if (roleEl) roleEl.textContent = roleName;
-      
-      const startBtn = document.getElementById('btnStartFirstShift');
-      if (startBtn) {
-        startBtn.onclick = () => {
-          switchTab('calendar');
-        };
-      }
+      document.getElementById('btnStartFirstShift').onclick = () => switchTab('calendar');
     } else {
       dashWelcome.style.display = 'none';
     }
   }
 
-  animateValue(document.getElementById('statHours'), fmt(workedHours));
-  
-  const expectedHoursEl = document.getElementById('statExpectedHours');
-  if (expectedHoursEl) {
-    expectedHoursEl.textContent = `+ ${fmt(futureHours)} ч.`;
-  }
+  animateValue(document.getElementById('statHours'), fmt(financials.hoursWorked));
 
-  const hoursSub = document.getElementById('statHours').closest('.stat-card').querySelector('.stat-sub');
-  if (hoursSub) {
-    hoursSub.innerHTML = `
-      <span>за месеца</span>
-      <div style="position: absolute; bottom: 1.4rem; right: 1.4rem; text-align: right; display: flex; flex-direction: column; gap: 2px;">
-        ${nightHours > 0 ? `<span style="color:#b08bff; font-size: 0.65rem; opacity: 0.8" title="Общо нощни часове">🌙 ${fmt(nightHours)}ч</span>` : ''}
-        <span id="statExpectedHours" style="color:var(--accent); font-weight:600; font-size: 0.75rem; opacity: 0.9" title="Очаквани часове (бъдещи смени)">+ ${fmt(futureHours)} ч.</span>
-      </div>
-    `;
+  // New FinTech: Update Hours Sub directly by ID
+  const expHoursEl = document.getElementById('statExpectedHours');
+  if (expHoursEl) {
+    expHoursEl.textContent = `+ ${fmt(financials.hoursPlanned)} ч.`;
+    expHoursEl.title = "Очаквани часове (бъдещи смени)";
   }
 
   const salaryEl = document.getElementById('statSalary');
   if (salaryEl) {
-    const currencies = Object.keys(actualByCurrency);
+    const currencies = Object.keys(financials.actualByCurrency);
     if (currencies.length === 0) {
       salaryEl.textContent = `0 лв.`;
-    } else if (currencies.length === 1) {
-      const c = currencies[0];
-      const val = actualByCurrency[c];
-      const rounded = Math.round(val * 10) / 10;
-      salaryEl.textContent = `${fmt(rounded)} ${c}`;
     } else {
-      // Multiple currencies: one per line, but keep standard size 
-      salaryEl.style.fontSize = '1.8rem'; // Slightly smaller than 2rem to avoid huge block, but matches 'vibe'
-      salaryEl.style.lineHeight = '1.2';
-      salaryEl.style.whiteSpace = 'normal';
-      salaryEl.innerHTML = currencies.map(c => {
-          const val = actualByCurrency[c];
-          const rounded = Math.round(val * 10) / 10;
-          return `<div>${fmt(rounded)} ${c}</div>`;
-      }).join('');
+      salaryEl.style.fontSize = currencies.length > 1 ? '1.8rem' : '2.5rem';
+      salaryEl.innerHTML = currencies.map(c => `<div>${fmt(financials.actualByCurrency[c])} ${c}</div>`).join('');
     }
   }
 
   const forecastEl = document.getElementById('statForecast');
   if (forecastEl) {
-    const pCurrencies = Object.keys(plannedByCurrency);
-    if (pCurrencies.length === 0) {
-      forecastEl.textContent = `Очаквани: 0 лв.`;
-    } else {
-      const forecastStr = pCurrencies
-        .map(c => `${Math.round(plannedByCurrency[c])} ${c}`)
-        .join('+');
-      forecastEl.textContent = `Очаквани: ${forecastStr}`;
+    const totalForecast = financials.totalActual + financials.totalFuture;
+    forecastEl.textContent = `Очаквани💸: ${fmt(totalForecast)} ${state.profile?.currency_code || 'лв.'}`;
+    forecastEl.title = `Общ очакван доход за месеца (изработено + планирано)`;
+  }
+
+  const daysEl = document.getElementById('statDays');
+  if (daysEl) {
+    animateValue(daysEl, financials.days);
+    const daysSub = document.getElementById('statDaysSub');
+    if (daysSub) {
+      daysSub.textContent = `+ ${financials.plannedShiftsCount} план.`;
+      daysSub.title = "Планирани бъдещи смени за месеца";
     }
   }
 
-  animateValue(document.getElementById('statDays'), days);
-  
   // Find Next Shift
   let nextShift = null;
   const sortedDates = Object.keys(state.entries).sort();
   for (const dk of sortedDates) {
     if (dk >= todayStr) {
-      const dayArr = state.entries[dk];
-      const found = dayArr.find(v => v.status === 'planned');
-      if (found) {
-        // If it's today, only include if it hasn't passed or if it's the only one
-        // For simplicity, we show the first planned shift from today onwards
-        nextShift = { date: dk, ...found };
-        break;
-      }
+      const found = (state.entries[dk] || []).find(v => v.status === 'planned');
+      if (found) { nextShift = { date: dk, ...found }; break; }
     }
   }
 
-  const nextTimeEl = document.getElementById('statNextShiftTime');
-  const nextDateEl = document.getElementById('statNextShiftDate');
-  if (nextTimeEl && nextDateEl) {
+  const nextTitleEl = document.getElementById('statNextShiftDate');
+  const nextDateLabelEl = document.getElementById('statNextShiftDateLabel');
+  const nextTplEl = document.getElementById('statNextShiftTemplate');
+  const nextTplRow = document.getElementById('statNextShiftTemplateRow');
+
+  if (nextTitleEl && nextDateLabelEl) {
     if (nextShift) {
       const d = new Date(nextShift.date);
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = String(d.getFullYear()).slice(-2);
-
-      // Large font: Date (DD.MM.YY)
-      nextTimeEl.textContent = `${day}.${month}.${year}`;
+      const dateStr = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getFullYear()).slice(-2)}`;
+      const timeStr = nextShift.shift_start ? `${nextShift.shift_start} - ${nextShift.shift_end}` : `${fmt(nextShift.hours)} ч.`;
       
-      // Sub font: Time and Type
-      const timeStr = nextShift.shift_start ? `${nextShift.shift_start} - ${nextShift.shift_end}` : `${fmt(nextShift.hours)}ч`;
-      nextDateEl.textContent = `${timeStr} (${nextShift.shift_type})`;
+      nextTitleEl.textContent = timeStr;
+      nextDateLabelEl.textContent = dateStr;
+
+      if (nextShift.template_name && nextTplEl && nextTplRow) {
+        nextTplEl.textContent = nextShift.template_name;
+        nextTplRow.style.display = 'flex';
+      } else if (nextTplRow) {
+        nextTplRow.style.display = 'none';
+      }
     } else {
-      nextTimeEl.textContent = '—';
-      nextDateEl.textContent = 'няма планирани';
+      nextTitleEl.textContent = 'няма планирани';
+      nextDateLabelEl.textContent = '—';
+      if (nextTplRow) nextTplRow.style.display = 'none';
     }
   }
 
-
   const widget = document.getElementById('plannedWidget');
-  const todayEntries = state.entries[todayStr] || [];
-  const plannedEntry = todayEntries.find(v => v.status === 'planned' && (v.hours || 0) > 0);
-
+  const plannedEntry = (state.entries[todayStr] || []).find(v => v.status === 'planned' && (v.hours || 0) > 0);
   if (plannedEntry) {
     let netHrs = plannedEntry.hours;
     if (plannedEntry.break_minutes > 0 && !plannedEntry.break_is_paid) {
@@ -1148,38 +1076,93 @@ async function renderDashboard() {
   document.getElementById('statRateSub').textContent = `при ${fmt(rate)} ${currency}/час`;
   document.getElementById('dashMonthLabel').textContent = `${MONTHS_BG[state.viewMonth]} ${state.viewYear}`;
 
-  const nightCount = Object.values(state.entries).filter(dayArr => dayArr.some(v => v.is_night)).length;
-  renderGoalProgress(workedHours, totalMonthly);
-  renderBadges(workedHours, days, nightCount);
+  const totalMonthly = state.profile?.monthly_goal || 160;
+  const nightCount = financials.nightHours > 0 ? financials.nightHours : 0; // or count specific shifts if needed
+
+  renderGoalProgress(financials.hoursWorked, totalMonthly);
+  renderBadges(financials.hoursWorked, financials.days, nightCount);
   renderMiniChart();
+  renderRecentShifts();
   checkUnconfirmedShifts();
 
-  // Dynamic filters from templates
-  const filterRow = document.getElementById('dashboardFilters');
-  if (filterRow) {
-    const label = filterRow.querySelector('.filter-label');
-    filterRow.innerHTML = '';
-    if (label) filterRow.appendChild(label);
 
-    const filters = [{ name: 'Всички', value: 'all' }];
-    if (state.profile?.custom_shifts) {
-      state.profile.custom_shifts.forEach(tpl => filters.push({ name: tpl.name, value: tpl.name }));
+
+  // Update Next Shift meta boxes (if any)
+  const nextDateBox = document.getElementById('statNextShiftDateBox');
+  const nextTimeBox = document.getElementById('statNextShiftTime');
+  const nextShiftTitle = document.getElementById('statNextShiftDate'); // This is the title in focus card
+
+  // statNextShiftDate is updated in calculateFinancials logic usually, 
+  // but let's ensure we have a clean state if no next shift
+  if (nextTimeBox && nextTimeBox.textContent === '—') {
+    if (nextDateBox) nextDateBox.textContent = '—';
+  } else if (nextTimeBox) {
+    // If we have a time, we probably have a date stored in the title or can extract it
+    // Usually statNextShiftDate (ID) gets the relative date from calculateFinancials
+    if (nextDateBox && nextShiftTitle) {
+      nextDateBox.textContent = nextShiftTitle.textContent;
     }
-    // Also add shift types if they are common
-    filters.push({ name: 'Извънреден', value: 'overtime' });
-
-    filters.forEach(f => {
-      const btn = document.createElement('button');
-      btn.className = `filter-chip ${state.activeFilter === f.value ? 'active' : ''}`;
-      btn.textContent = f.name;
-      btn.onclick = () => {
-        state.activeFilter = f.value;
-        renderDashboard();
-      };
-      filterRow.appendChild(btn);
-    });
   }
+
   renderCalendar();
+}
+
+/** ── New FinTech: Recent Shifts List ── */
+function renderRecentShifts() {
+  const container = document.getElementById('recentShiftsList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Get all entries, sort by date desc
+  const allEntries = [];
+  Object.keys(state.entries).forEach(dk => {
+    state.entries[dk].forEach(entry => {
+      if (entry.status !== 'planned') {
+        allEntries.push({ ...entry, day_key: dk });
+      }
+    });
+  });
+
+  allEntries.sort((a, b) => b.day_key.localeCompare(a.day_key));
+
+  // Take top 3
+  const recent = allEntries.slice(0, 3);
+
+  if (recent.length === 0) {
+    container.innerHTML = `<p style="font-size:0.85rem; color:var(--text-dim); text-align:center; padding:1rem">Няма скорошни смени.</p>`;
+    return;
+  }
+
+  recent.forEach(entry => {
+    const item = document.createElement('div');
+    item.className = 'recent-shift-item';
+
+    // Calculate salary for this specific entry
+    let amt = 0;
+    if (entry.shift_mode === 'flat') {
+      amt = entry.rate || 0;
+    } else {
+      const h = entry.hours || 0;
+      const r = entry.rate || state.profile?.hourly_rate || DEFAULT_RATE;
+      amt = h * r;
+    }
+
+    const currency = entry.currency_code || state.profile?.currency_code || 'лв.';
+    const dateObj = new Date(entry.day_key);
+    const dateStr = `${dateObj.getDate()} ${MONTHS_BG[dateObj.getMonth()].substring(0, 3)}.`;
+
+    item.innerHTML = `
+      <div class="recent-shift-icon">${entry.is_night ? '🌙' : '☀️'}</div>
+      <div class="recent-shift-info">
+        <div class="recent-shift-name">${entry.shift_type === 'overtime' ? 'Извънредна' : 'Редовна'} смяна</div>
+        <div class="recent-shift-date">${dateStr} • ${fmt(entry.hours)} ч.</div>
+      </div>
+      <div class="recent-shift-amount">+ ${fmt(amt)} ${currency}</div>
+    `;
+
+    item.onclick = () => openHourModal(entry.day_key, dateObj.getDate());
+    container.appendChild(item);
+  });
 }
 
 
@@ -1265,15 +1248,15 @@ function renderGoalProgress(worked, forecast) {
   const goal = state.profile?.monthly_goal || 160;
   const actualPct = Math.min(100, (worked / goal) * 100);
   const forecastPct = Math.min(100, (forecast / goal) * 100);
-  
+
   const fillActual = document.getElementById('goalFill');
   const fillForecast = document.getElementById('goalFillForecast');
-  
+
   if (fillActual) fillActual.style.width = actualPct + '%';
   if (fillForecast) fillForecast.style.width = forecastPct + '%';
-  
+
   document.getElementById('goalPct').textContent = actualPct.toFixed(1) + '%';
-  
+
   const container = document.getElementById('goalValueContainer');
   if (container) {
     container.innerHTML = `
@@ -1373,8 +1356,11 @@ function renderCalendar() {
   const { viewYear: year, viewMonth: month } = state;
   const today = new Date();
 
-  const labelEl = document.getElementById('dashMonthLabel') || document.getElementById('calMonthLabel');
-  if (labelEl) labelEl.textContent = `${MONTHS_BG[month]} ${year}`;
+  // Update both possible month label elements
+  ['dashMonthLabel', 'calPageMonthLabel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = `${MONTHS_BG[month]} ${year}`;
+  });
 
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
@@ -1429,12 +1415,14 @@ function renderCalendar() {
         else hasActual = true;
         if (entry.is_night) hasNight = true;
         if (entry.shift_type !== 'normal') mainShift = entry.shift_type;
+        if (entry.shift_mode === 'flat') mainShift = 'flat';
       });
 
       if (hasNight) cell.classList.add('night-shift');
       if (hasActual) cell.classList.add('worked', 'actual');
       else if (hasPlanned) cell.classList.add('planned');
       if (mainShift === 'overtime') cell.classList.add('overtime-day');
+      if (mainShift === 'flat') cell.classList.add('flat-day');
 
       const hoursCont = document.createElement('div');
       hoursCont.className = 'day-hours-list';
@@ -1495,6 +1483,67 @@ function renderCalendar() {
     cell.addEventListener('click', () => openHourModal(dk, d));
     grid.appendChild(cell);
   }
+
+  // Final initializations after rendering
+  const calWrap = document.getElementById('calendarWrap');
+  if (calWrap) addSwipeSupport(calWrap);
+}
+
+/* ═══════════════════════════════════════════
+   LOGIC & MATH
+═══════════════════════════════════════════ */
+function calculateFinancials(entries) {
+  const totals = {
+    hoursWorked: 0,
+    hoursPlanned: 0,
+    nightHours: 0,
+    days: 0,
+    totalActual: 0,
+    totalFuture: 0,
+    actualByCurrency: {},
+    plannedByCurrency: {}
+  };
+
+  const workedDays = new Set();
+  const allShifts = [];
+  Object.keys(entries).forEach(dk => {
+    (entries[dk] || []).forEach(v => allShifts.push({ ...v, dayKey: dk }));
+  });
+
+  allShifts.forEach(v => {
+    let nh = v.hours || 0;
+    if (v.break_minutes > 0 && !v.break_is_paid) {
+      nh = Math.max(0, nh - (v.break_minutes / 60));
+    }
+
+    const cur = v.currency_code || 'лв.';
+    const rate = v.rate || v.hourly_rate || DEFAULT_RATE;
+
+    if (v.status === 'planned') {
+      totals.hoursPlanned += nh;
+      totals.plannedShiftsCount = (totals.plannedShiftsCount || 0) + 1;
+      const amount = v.shift_mode === 'flat' ? rate : (nh * rate);
+      totals.plannedByCurrency[cur] = (totals.plannedByCurrency[cur] || 0) + amount;
+      totals.totalFuture += amount;
+    } else {
+      workedDays.add(v.dayKey);
+      if (v.is_night) totals.nightHours += nh;
+
+      if (v.shift_mode === 'flat') {
+        totals.actualByCurrency[cur] = (totals.actualByCurrency[cur] || 0) + rate;
+        totals.totalActual += rate;
+      } else {
+        totals.hoursWorked += nh;
+        const amount = nh * rate;
+        totals.actualByCurrency[cur] = (totals.actualByCurrency[cur] || 0) + amount;
+        totals.totalActual += amount;
+      }
+    }
+  });
+
+  totals.days = workedDays.size;
+  totals.plannedShiftsCount = totals.plannedShiftsCount || 0;
+  return totals;
 }
 
 /* ═══════════════════════════════════════════
@@ -1577,6 +1626,52 @@ function updateHoursPreview() {
   document.querySelectorAll('.custom-tpl').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.start === startVal && btn.dataset.end === endVal);
   });
+
+  // Flat mode toggling
+  const mode = document.querySelector('input[name="shiftMode"]:checked')?.value || 'hourly';
+  const hourlyFields = document.getElementById('hourlyFields');
+  const flatFields = document.getElementById('flatFields');
+  const breakSection = document.getElementById('breakSection');
+  const rateSection = document.getElementById('rateSection');
+  const modalDivider = document.getElementById('modalDivider');
+  const currency = document.getElementById('modalShiftCurrency')?.value || state.profile?.currency_code || 'лв.';
+
+  if (mode === 'hourly') {
+    if (hourlyFields) hourlyFields.style.display = 'block';
+    if (flatFields) flatFields.style.display = 'none';
+    if (breakSection) breakSection.style.display = 'block';
+    if (rateSection) rateSection.style.display = 'block';
+    if (modalDivider) modalDivider.style.display = 'block';
+
+    const label = badge?.querySelector('.hours-preview-label');
+    if (label) label.textContent = 'ч';
+    if (!totalHours || totalHours <= 0) {
+      preview.textContent = '—';
+    } else {
+      let netHours = totalHours;
+      if (breakMin > 0 && breakType === 'unpaid') {
+        netHours = Math.max(0, totalHours - (breakMin / 60));
+      }
+      preview.textContent = fmt(netHours);
+    }
+  } else {
+    if (hourlyFields) hourlyFields.style.display = 'none';
+    if (flatFields) flatFields.style.display = 'block';
+    if (breakSection) breakSection.style.display = 'none';
+    if (rateSection) rateSection.style.display = 'none';
+    if (modalDivider) modalDivider.style.display = 'none';
+
+    const flatAmt = parseFloat(document.getElementById('flatAmount').value) || 0;
+    const label = badge?.querySelector('.hours-preview-label');
+    if (label) label.textContent = currency;
+    preview.textContent = flatAmt > 0 ? fmt(flatAmt) : '—';
+
+    // Update subtext
+    if (breakPreview) {
+      breakPreview.textContent = flatAmt > 0 ? 'Общо за смяната' : '';
+      breakPreview.style.display = flatAmt > 0 ? 'block' : 'none';
+    }
+  }
 }
 
 function openHourModal(dk, dayNum) {
@@ -1597,6 +1692,17 @@ function openHourModal(dk, dayNum) {
 
   // Shift state
   state.activeShift = curShift;
+
+  // Shift mode
+  const mode = entry?.shift_mode || state.profile?.default_payment_mode || 'hourly';
+  const hRadio = document.getElementById('modeHourly');
+  const fRadio = document.getElementById('modeFlat');
+  if (hRadio && fRadio) {
+    if (mode === 'flat') fRadio.checked = true;
+    else hRadio.checked = true;
+  }
+  const flatAmountInput = document.getElementById('flatAmount');
+  if (flatAmountInput) flatAmountInput.value = mode === 'flat' ? (entry?.rate || '') : '';
 
   // Determine initial times
   let storedStart = entry?.shift_start || '';
@@ -1758,7 +1864,7 @@ function isOverlapping(newShift, existingEntries) {
     const dayArr = existingEntries[iv.dk] || [];
     for (const ext of dayArr) {
       if (!ext.shift_start || !ext.shift_end) continue;
-      
+
       // Пропускаме, ако е същата смяна, която редактираме (ID или ParentID за нощни смени)
       if (newShift.id && (ext.id === newShift.id || ext.parent_shift_id === newShift.id)) continue;
       if (newShift.parentId && (ext.id === newShift.parentId || ext.parent_shift_id === newShift.parentId)) continue;
@@ -1779,119 +1885,113 @@ function isOverlapping(newShift, existingEntries) {
 }
 
 async function saveHours() {
-  const saveBtn = document.getElementById('customSave');
-  if (!state.modalDay || saveBtn.disabled) return;
+  const saveBtn = document.getElementById('saveHoursBtn');
+  if (!state.modalDay || (saveBtn && saveBtn.disabled)) return;
   const dk = state.modalDay;
   const startInp = document.getElementById('shiftStart');
   const endInp = document.getElementById('shiftEnd');
-  
-  // Рестартиране на стиловете за грешка
+
   startInp.style.borderColor = '';
   endInp.style.borderColor = '';
 
+  const shiftMode = document.querySelector('input[name="shiftMode"]:checked')?.value || 'hourly';
   const startVal = startInp.value;
   const endVal = endInp.value;
 
-  // Проверка за застъпване преди всички други изчисления
-  const collision = isOverlapping({
-    dayKey: dk,
-    start: startVal,
-    end: endVal,
-    id: state.modalEditingId || null,
-    parentId: state.modalParentId || null
-  }, state.entries);
+  if (shiftMode === 'hourly') {
+    const collision = isOverlapping({
+      dayKey: dk,
+      start: startVal,
+      end: endVal,
+      id: state.modalEditingId || null,
+      parentId: state.modalParentId || null
+    }, state.entries);
 
-  if (collision) {
-    const colTime = `${collision.shift_start} - ${collision.shift_end}`;
-    const collisionDay = collision.day_key && collision.day_key !== dk ? ` за ${collision.day_key}` : '';
-    toast(`⚠️ Внимание: Тази смяна се застъпва с вече съществуваща (${colTime}${collisionDay})!`, 'error');
-    
-    startInp.style.borderColor = 'var(--red)';
-    endInp.style.borderColor = 'var(--red)';
-    return;
+    if (collision) {
+      const colTime = `${collision.shift_start} - ${collision.shift_end}`;
+      const collisionDay = collision.day_key && collision.day_key !== dk ? ` за ${collision.day_key}` : '';
+      toast(`⚠️ Внимание: Тази смяна се застъпва с вече съществуваща (${colTime}${collisionDay})!`, 'error');
+      startInp.style.borderColor = 'var(--red)';
+      endInp.style.borderColor = 'var(--red)';
+      return;
+    }
+
+    const totalHours = calcShiftHours(startVal, endVal);
+    if (totalHours === null || totalHours <= 0 || totalHours > 24) {
+      toast('Въведи валидни часове за начало и край на смяната', 'error');
+      return;
+    }
+  } else {
+    const flatAmt = parseFloat(document.getElementById('flatAmount').value) || 0;
+    if (flatAmt <= 0) {
+      toast('Въведи валидна сума за надницата', 'error');
+      return;
+    }
   }
 
-  const totalHours = calcShiftHours(startVal, endVal);
-
-  const breakMin = parseInt(document.getElementById('breakMinutes').value) || 0;
-  const breakIsPaid = document.getElementById('breakPaid').checked;
-
-  const rate = parseFloat(document.getElementById('modalShiftRate').value) || state.profile?.hourly_rate || DEFAULT_RATE;
+  const breakMinEl = document.getElementById('breakMinutes');
+  const breakMin = breakMinEl ? (parseInt(breakMinEl.value) || 0) : 0;
+  const breakPaidEl = document.getElementById('breakPaid');
+  const breakIsPaid = breakPaidEl ? breakPaidEl.checked : false;
+  
+  const rateInp = document.getElementById('modalShiftRate');
+  const rateInputVal = rateInp ? parseFloat(rateInp.value) : NaN;
+  const flatInp = document.getElementById('flatAmount');
+  const flatInputVal = flatInp ? parseFloat(flatInp.value) : NaN;
+  
+  const finalRate = shiftMode === 'flat' ? (flatInputVal || 0) : (rateInputVal || state.profile?.hourly_rate || DEFAULT_RATE);
   const currency = document.getElementById('modalShiftCurrency')?.value || state.profile?.currency_code || 'лв.';
-
-  if (totalHours === null || totalHours <= 0 || totalHours > 24) {
-    toast('Въведи валидни часове за начало и край на смяната', 'error');
-    return;
-  }
 
   saveBtn.disabled = true;
   saveBtn.innerHTML = '<span class="spinner"></span>';
 
   try {
     const todayStr = new Date().toISOString().split('T')[0];
-    const uid = state.user?.id || 'demo';
-
-    // АКО Е РЕДАКЦИЯ: Първо изтриваме старата версия, за да не остават дубликати
     if (state.modalEditingId) {
       await dbDeleteShiftGroup(dk, state.modalEditingId, state.modalParentId);
     }
 
-    // Check if overnight
-    const [sh, sm] = startVal.split(':').map(Number);
-    const [eh, em] = endVal.split(':').map(Number);
-    const isOvernight = (eh < sh) || (eh === sh && em < sm);
-
-    // Detect template name
-    const activeTpl = document.querySelector('.custom-tpl.active');
-    const templateName = activeTpl ? activeTpl.dataset.name : null;
-
-    // Improved Night detection
-    // Crossing midnight OR starting between 22:00-05:00 OR ending between 00:00-06:00
-    const isNight = isOvernight || (sh >= 22 || sh <= 5);
-
-    if (!isOvernight) {
-      // Standard single shift
-      let targetStatus = (dk > todayStr) ? 'planned' : 'actual';
-      
-      // Historical accuracy: record current profile values
-      const currentRate = rate; 
-      const currentCurrency = currency;
-      
-      await dbSetEntry(dk, totalHours, currentRate, state.activeShift, startVal, endVal, targetStatus, null, breakMin, breakIsPaid, isNight, null, null, templateName, currentCurrency);
+    if (shiftMode === 'flat') {
+      const targetStatus = (dk > todayStr) ? 'planned' : 'actual';
+      // For flat shifts, store rate as 'rate' and mark hours=0 so dbSetEntry knows it's flat
+      // We pass state.modalEditingId as existingId to upsert correctly when editing
+      await dbSetEntry(dk, 0, finalRate, 'flat', '', '', targetStatus, null, 0, false, false, null, state.modalEditingId || null, null, currency);
     } else {
-      // Split shift
-      const parentId = getUUID();
+      const totalHours = calcShiftHours(startVal, endVal);
+      const [sh, sm] = startVal.split(':').map(Number);
+      const [eh, em] = endVal.split(':').map(Number);
+      const isOvernight = (eh < sh) || (eh === sh && em < sm);
+      const activeTpl = document.querySelector('.custom-tpl.active');
+      const templateName = activeTpl ? activeTpl.dataset.name : null;
+      const isNight = isOvernight || (sh >= 22 || sh <= 5);
 
-      // Day 1: Start to 00:00
-      const d1Hours = 24 - (sh + sm / 60);
-      const d1Status = (dk > todayStr) ? 'planned' : 'actual';
-
-      // Day 2: 00:00 to End
-      const d2Hours = eh + em / 60;
-      const nextDay = new Date(dk);
-      nextDay.setDate(nextDay.getDate() + 1);
-      const dk2 = nextDay.toISOString().split('T')[0];
-
-      // If Day 1 is starting today or in past, mark Day 2 also as actual 
-      // so the full overnight hours are counted immediately in dashboard.
-      const d2Status = d1Status;
-
-      // Split break
-      const b1 = (breakMin * (d1Hours / totalHours));
-      const b2 = breakMin - b1;
-
-      // Historical accuracy: record current rate used in THIS modal (ignoring future profile changes)
-      const currentRate = rate; 
-      const currentCurrency = currency;
-
-      await dbSetEntry(dk, d1Hours, currentRate, state.activeShift, startVal, '23:59', d1Status, null, Math.round(b1), breakIsPaid, true, parentId, null, templateName, currentCurrency);
-      await dbSetEntry(dk2, d2Hours, currentRate, state.activeShift, '00:00', endVal, d2Status, null, Math.round(b2), breakIsPaid, true, parentId, null, templateName, currentCurrency);
+      if (!isOvernight) {
+        let targetStatus = (dk > todayStr) ? 'planned' : 'actual';
+        await dbSetEntry(dk, totalHours, finalRate, state.activeShift, startVal, endVal, targetStatus, null, breakMin, breakIsPaid, isNight, null, null, templateName, currency);
+      } else {
+        // If it's a short overnight shift (<= 12h), save it on one day to keep calendar clean
+        if (totalHours <= 12) {
+          let targetStatus = (dk > todayStr) ? 'planned' : 'actual';
+          await dbSetEntry(dk, totalHours, finalRate, state.activeShift, startVal, endVal, targetStatus, null, breakMin, breakIsPaid, true, null, null, templateName, currency);
+        } else {
+          const parentId = getUUID();
+          const d1Hours = 24 - (sh + sm / 60);
+          const d1Status = (dk > todayStr) ? 'planned' : 'actual';
+          const d2Hours = eh + em / 60;
+          const nextDay = new Date(dk);
+          nextDay.setDate(nextDay.getDate() + 1);
+          const dk2 = nextDay.toISOString().split('T')[0];
+          const b1 = (breakMin * (d1Hours / totalHours));
+          const b2 = breakMin - b1;
+          await dbSetEntry(dk, d1Hours, finalRate, state.activeShift, startVal, '23:59', d1Status, null, Math.round(b1), breakIsPaid, true, parentId, null, templateName, currency);
+          await dbSetEntry(dk2, d2Hours, finalRate, state.activeShift, '00:00', endVal, d1Status, null, Math.round(b2), breakIsPaid, true, parentId, null, templateName, currency);
+        }
+      }
     }
-
     state.entries = await dbLoadEntries(state.viewYear, state.viewMonth);
     closeHourModal();
     await refreshAll();
-    toast(`✓ Записана ${isOvernight ? 'нощна' : 'смяна'} за ${dk}`, 'success');
+    toast(`✓ Записана смяна за ${dk}`, 'success');
   } catch (e) {
     console.error('saveHours error:', e);
     toast('Грешка при запис', 'error');
@@ -1962,17 +2062,23 @@ async function renderHistoryDetail(ym) {
     }
 
     let timeRange = '—';
-    if (v.shift_start && v.shift_end) {
+    if (v.shift_mode === 'flat') {
+      timeRange = 'Фиксирана надница';
+      netHrs = v.hours || 0; // for flat, hours is 0 anyway but let's be safe
+    } else if (v.shift_start && v.shift_end) {
       timeRange = `${v.shift_start} - ${v.shift_end}`;
     }
+
+    const finalRate = v.rate || v.hourly_rate || DEFAULT_RATE;
+    const finalSalary = v.shift_mode === 'flat' ? finalRate : (netHrs * finalRate);
 
     return `<tr>
       <td data-label="Дата">${dS} ${MONTHS_BG[mS - 1]} ${yS} ${v.is_night ? '<span title="Нощна смяна">🌙</span>' : ''}</td>
       <td data-label="Часове" style="font-family:var(--mono); font-size:0.9rem">${timeRange}</td>
-      <td data-label="Бруто/Нето">${fmt(v.hours)} ч / <span style="font-size:0.8rem;color:var(--text-dim)">Нето: ${fmt(netHrs)}ч</span></td>
-      <td data-label="Почивка">${breakText}</td>
-      <td data-label="Ставка">${fmt(v.rate || v.hourly_rate || DEFAULT_RATE)} ${v.currency_code || 'лв.'}</td>
-      <td data-label="Заплата">${fmt(netHrs * (v.rate || v.hourly_rate || DEFAULT_RATE))} ${v.currency_code || 'лв.'}</td>
+      <td data-label="Бруто/Нето">${v.shift_mode === 'flat' ? '—' : `${fmt(v.hours)} ч / <span style="font-size:0.8rem;color:var(--text-dim)">Нето: ${fmt(netHrs)}ч</span>`}</td>
+      <td data-label="Почивка">${v.shift_mode === 'flat' ? '—' : breakText}</td>
+      <td data-label="Ставка">${fmt(finalRate)} ${v.currency_code || 'лв.'}</td>
+      <td data-label="Заплата">${fmt(finalSalary)} ${v.currency_code || 'лв.'}</td>
       <td data-label="Смяна">${shiftLabel}</td>
     </tr>`;
   }).join('');
@@ -1992,7 +2098,7 @@ async function renderHistoryDetail(ym) {
     totalHoursNet += netHrs;
   });
 
-  const salaryDisplay = Object.keys(historyTotals).length > 0 
+  const salaryDisplay = Object.keys(historyTotals).length > 0
     ? Object.keys(historyTotals).map(c => `${fmt(historyTotals[c])} ${c}`).join(' + ')
     : '0 лв.';
 
@@ -2103,13 +2209,13 @@ async function renderLineChart() {
     type: 'bar',
     data: {
       labels, datasets: [{
-        label: 'Заплата по валути', 
+        label: 'Заплата по валути',
         data: valS.map(obj => {
           // Chart.js bar height needs a single number. 
           // We'll show the breakdown in tooltips, but for height we sum them up 
           // (This is a visual approximation, but tooltips will be exact)
           return Object.values(obj).reduce((s, a) => s + a, 0);
-        }), 
+        }),
         backgroundColor: 'rgba(176,139,255,0.7)',
         borderColor: '#b08bff', borderWidth: 2, borderRadius: 6,
         breakdown: valS // Store the raw objects for tooltips
@@ -2225,10 +2331,16 @@ function renderProfile() {
   const p = state.profile;
   const initials = (p.full_name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
-  const avatars = document.querySelectorAll('.user-avatar, #profileAvatar');
-  avatars.forEach(el => {
+  // Обновяваме всички аватари: в topbar-а, в падащото меню и в самия профил
+  const avatarIds = ['topAvatar', 'dropdownAvatar', 'profileAvatar'];
+  avatarIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    
     if (p.avatar_url) {
       el.style.backgroundImage = `url(${p.avatar_url})`;
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
       el.textContent = '';
     } else {
       el.style.backgroundImage = 'none';
@@ -2236,16 +2348,18 @@ function renderProfile() {
     }
   });
 
-  const ddAvatar = document.getElementById('dropdownAvatar');
-  if (ddAvatar) {
+  // За всеки случай обновяваме и по клас
+  document.querySelectorAll('.user-avatar').forEach(el => {
     if (p.avatar_url) {
-      ddAvatar.style.backgroundImage = `url(${p.avatar_url})`;
-      ddAvatar.textContent = '';
+      el.style.backgroundImage = `url(${p.avatar_url})`;
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+      el.textContent = '';
     } else {
-      ddAvatar.style.backgroundImage = 'none';
-      ddAvatar.textContent = initials;
+      el.style.backgroundImage = 'none';
+      el.textContent = initials;
     }
-  }
+  });
 
   const ddName = document.getElementById('dropdownName');
   if (ddName) ddName.textContent = p.full_name || 'Потребител';
@@ -2254,7 +2368,7 @@ function renderProfile() {
 
   const pn = document.getElementById('profileName');
   if (pn) pn.textContent = p.full_name || '—';
-  
+
   const greeting = document.getElementById('greetingLabel');
   if (greeting) {
     const firstName = (p.full_name || 'Приятелю').split(' ')[0];
@@ -2459,21 +2573,83 @@ async function saveCustomShiftTemplate() {
   renderCustomShifts();
 }
 
+/**
+ * Смарт обработка на изображение: Квадратно изрязване, преоразмеряване до 400x400 и WebP компресия
+ */
+// Глобална инстанция на Cropper
+let avatarCropper = null;
+
+/**
+ * Затваряне на модала за изрязване
+ */
+function closeCropModal() {
+  document.getElementById('cropModal').setAttribute('hidden', '');
+  if (avatarCropper) {
+    avatarCropper.destroy();
+    avatarCropper = null;
+  }
+}
+
+/**
+ * Основна функция за качване на аватар с интерактивно изрязване
+ */
 async function handleAvatarUpload(file) {
   if (!file) return;
-  if (file.size > 1024 * 1024) {
-    toast('❌ Снимката е твърде голяма (макс. 1MB)', 'error');
-    return;
-  }
 
   const reader = new FileReader();
-  reader.onload = async (e) => {
-    const base64 = e.target.result;
-    state.profile.avatar_url = base64;
-    toast('⌛ Запазване...', 'info');
-    await dbSaveProfile({ avatar_url: base64 });
-    renderProfile();
-    toast('✅ Снимката е обновена', 'success');
+  reader.onload = (e) => {
+    const cropImg = document.getElementById('cropImage');
+    cropImg.src = e.target.result;
+    
+    document.getElementById('cropModal').removeAttribute('hidden');
+
+    // Инициализиране на Cropper.js
+    if (avatarCropper) avatarCropper.destroy();
+    avatarCropper = new Cropper(cropImg, {
+      aspectRatio: 1, // Квадрат
+      viewMode: 1,
+      dragMode: 'move',
+      autoCropArea: 1,
+      restore: false,
+      guides: true,
+      center: true,
+      highlight: false,
+      cropBoxMovable: true,
+      cropBoxResizable: true,
+      toggleDragModeOnDblclick: false,
+    });
+
+    // Бутон за финализиране на изрязването
+    document.getElementById('btnApplyCrop').onclick = async () => {
+      const canvas = avatarCropper.getCroppedCanvas({
+        width: 400,
+        height: 400,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+      });
+
+      closeCropModal();
+      
+      // UI Feedback
+      const avatarElements = document.querySelectorAll('.user-avatar, .profile-avatar, .dropdown-avatar');
+      avatarElements.forEach(el => el.classList.add('avatar-loading'));
+
+      try {
+        // Конвертиране в WebP (80% качество)
+        const base64 = canvas.toDataURL('image/webp', 0.8);
+        
+        state.profile.avatar_url = base64;
+        await dbSaveProfile({ avatar_url: base64 });
+        
+        renderProfile();
+        toast('✅ Снимката е обновена успешно', 'success');
+      } catch (err) {
+        console.error('Finalize avatar failed:', err);
+        toast('❌ Грешка при запис на снимката', 'error');
+      } finally {
+        avatarElements.forEach(el => el.classList.remove('avatar-loading'));
+      }
+    };
   };
   reader.readAsDataURL(file);
 }
@@ -2481,17 +2657,17 @@ async function handleAvatarUpload(file) {
 async function saveRate(newRate) {
   const r = parseFloat(newRate);
   if (isNaN(r) || r <= 0) { toast('Невалидна ставка', 'error'); return; }
-  
+
   const curSelect = document.getElementById('profileCurrency');
   const currency = curSelect ? curSelect.value : (state.profile?.currency_code || 'лв.');
 
   const history = Array.isArray(state.profile?.rate_history) ? state.profile.rate_history : [];
-  history.push({ 
-    rate: r, 
+  history.push({
+    rate: r,
     currency: currency,
-    date: new Date().toISOString().split('T')[0] 
+    date: new Date().toISOString().split('T')[0]
   });
-  
+
   await dbSaveProfile({ hourly_rate: r, currency_code: currency, rate_history: history });
   renderProfile();
   toast(`✓ Профилът е обновен: ${fmt(r)} ${currency}/час`, 'success');
@@ -2764,12 +2940,17 @@ async function doReset() {
 ═══════════════════════════════════════════ */
 async function switchTab(tabId) {
   state.activeTab = tabId;
-  
+
   // Close dropdown if open
   closeProfileDropdown();
 
   // Highlight active nav buttons
   document.querySelectorAll('.nav-btn').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tabId);
+  });
+
+  // Sync bottom nav
+  document.querySelectorAll('.bnav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === tabId);
   });
 
@@ -2781,6 +2962,13 @@ async function switchTab(tabId) {
   // Special handling for views
   if (tabId === 'dashboard') {
     await renderDashboard();
+  }
+  if (tabId === 'calendar') {
+    ['dashMonthLabel', 'calPageMonthLabel'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = `${MONTHS_BG[state.viewMonth]} ${state.viewYear}`;
+    });
+    renderCalendar();
   }
   if (tabId === 'history') {
     await populateHistorySelect();
@@ -2796,8 +2984,8 @@ async function switchTab(tabId) {
   }
 
 
-  // Ensure calendar renders if visible (now in dashboard)
-  if (document.getElementById('calGrid')) {
+  // Ensure calendar renders if visible (now in tab-calendar)
+  if (tabId === 'calendar' || tabId === 'dashboard') {
     renderCalendar();
   }
 }
@@ -2814,23 +3002,12 @@ async function renderSubscription() {
   activePanel.style.display = 'none';
   inactivePanel.style.display = 'none';
 
-  // Demo mode -> Assume inactive or show mock
-  if (state.demoMode || !sb || !state.isOnline) {
-    loading.style.display = 'none';
-    inactivePanel.style.display = 'block';
-    return;
-  }
-
-  // Fetch status from profile
-  const { data: profile } = await sb
-    .from('user_profiles')
-    .select('subscription_status')
-    .eq('id', state.user.id)
-    .single();
+  // Use state.profile directly instead of fetch
+  const status = state.profile?.subscription_status || 'inactive';
 
   loading.style.display = 'none';
 
-  if (profile?.subscription_status === 'active') {
+  if (status === 'active') {
     activePanel.style.display = 'block';
   } else {
     inactivePanel.style.display = 'block';
@@ -2899,10 +3076,24 @@ window.startStripeCheckout = startStripeCheckout;
 window.manageStripeSubscription = manageStripeSubscription;
 
 document.addEventListener('DOMContentLoaded', () => {
-    const btnManageSub = document.getElementById('btnManageSub');
-    if (btnManageSub) {
-        btnManageSub.addEventListener('click', manageStripeSubscription);
-    }
+  // Bottom nav
+  document.querySelectorAll('.bnav-item').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+  document.getElementById('bnavFab')?.addEventListener('click', () => {
+    const today = new Date();
+    const dk = today.toISOString().split('T')[0];
+    openHourModal(dk, today.getDate());
+  });
+
+  // Calendar page month nav
+  document.getElementById('calPagePrev')?.addEventListener('click', () => changeMonth(-1));
+  document.getElementById('calPageNext')?.addEventListener('click', () => changeMonth(+1));
+
+  const btnManageSub = document.getElementById('btnManageSub');
+  if (btnManageSub) {
+    btnManageSub.addEventListener('click', manageStripeSubscription);
+  }
 });
 
 /* ═══════════════════════════════════════════
@@ -2912,7 +3103,7 @@ function toggleProfileDropdown(e) {
   if (e) e.stopPropagation();
   const dropdown = document.getElementById('profileDropdown');
   const isHidden = dropdown.hasAttribute('hidden');
-  
+
   if (isHidden) {
     dropdown.removeAttribute('hidden');
     // Force reflow for animation
@@ -3100,7 +3291,7 @@ function wireAppEvents() {
   document.getElementById('modalShiftRate')?.addEventListener('input', updateHoursPreview);
 
   // Save shift button
-  document.getElementById('customSave')?.addEventListener('click', saveHours);
+  document.getElementById('saveHoursBtn')?.addEventListener('click', saveHours);
 
   // Custom templates setting
   document.getElementById('saveTplBtn')?.addEventListener('click', saveCustomShiftTemplate);
@@ -3279,6 +3470,12 @@ function wireAppEvents() {
     radio.addEventListener('change', updateHoursPreview);
   });
 
+  document.querySelectorAll('input[name="shiftMode"]').forEach(r => {
+    r.addEventListener('change', updateHoursPreview);
+  });
+  const flatAmtInp = document.getElementById('flatAmount');
+  if (flatAmtInp) flatAmtInp.addEventListener('input', updateHoursPreview);
+
   // Rate Section Events
   document.getElementById('rateToggleHeader')?.addEventListener('click', () => {
     const content = document.getElementById('rateCollapseContent');
@@ -3301,7 +3498,7 @@ function wireAppEvents() {
 function registerSW() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./service-worker.js')
-      .catch(() => {}); // Silent fail for SW
+      .catch(() => { }); // Silent fail for SW
   }
 }
 
@@ -3357,35 +3554,35 @@ async function init() {
 function getTutorialSteps() {
   const isMobile = window.innerWidth < 768;
   const steps = [];
-  
+
   if (isMobile) {
     // На мобилен разделяме статистиките на 2 стъпки за по-малка "дупка"
-    steps.push({ 
-      ids: ['cardHours', 'cardSalary'], 
-      text: 'Тук ще виждаш колко пари си изработил и колко часа си направил в реално време.' 
+    steps.push({
+      ids: ['cardHours', 'cardSalary'],
+      text: 'Тук ще виждаш колко пари си изработил и колко часа си направил в реално време.'
     });
-    steps.push({ 
-      ids: ['cardDays', 'cardAvg'], 
-      text: 'Тук виждаш статистиката за работните дни и средната продължителност на смените си.' 
+    steps.push({
+      ids: ['cardDays', 'cardAvg'],
+      text: 'Тук виждаш статистиката за работните дни и средната продължителност на смените си.'
     });
   } else {
     // На десктоп подчертаваме всичко заедно
-    steps.push({ 
-      id: 'statsGrid', 
-      text: 'Това са твоите живи данни. Когато добавиш смяна, тук ще видиш часовете и парите си в реално време.' 
+    steps.push({
+      id: 'statsGrid',
+      text: 'Това са твоите живи данни. Когато добавиш смяна, тук ще видиш часовете и парите си в реално време.'
     });
   }
-  
+
   // Общи стъпки
-  steps.push({ 
-    id: 'dashboardFilters', 
-    text: 'Това са твоите бързи шаблони. Shifster ги зареди автоматично за твоята роля, за да спестиш време.' 
+  steps.push({
+    id: 'dashboardFilters',
+    text: 'Това са твоите бързи шаблони. Shifster ги зареди автоматично за твоята роля, за да спестиш време.'
   });
-  steps.push({ 
-    selector: '.nav-btn[data-tab="calendar"]', 
-    text: 'Тук се случва магията. Отиди в календара, за да впишеш първата си смяна и да планираш месеца!' 
+  steps.push({
+    selector: '.nav-btn[data-tab="calendar"]',
+    text: 'Тук се случва магията. Отиди в календара, за да впишеш първата си смяна и да планираш месеца!'
   });
-  
+
   return steps;
 }
 
@@ -3398,11 +3595,11 @@ function startTutorial() {
 
   activeTutorialSteps = getTutorialSteps();
   tutorialIdx = 0;
-  
+
   document.body.classList.add('tutorial-active');
   overlay.removeAttribute('hidden');
   overlay.style.opacity = '1';
-  
+
   document.getElementById('btnTutorialNext').onclick = nextTutorialStep;
   showTutorialStep(0);
 }
@@ -3413,7 +3610,7 @@ function showTutorialStep(idx) {
   const step = activeTutorialSteps[idx];
   let target;
   let rect;
-  
+
   if (step.ids) {
     // Union rect за масив от елементи
     const boxes = step.ids.map(id => document.getElementById(id).getBoundingClientRect());
@@ -3428,7 +3625,7 @@ function showTutorialStep(idx) {
     if (!target) return nextTutorialStep();
     rect = target.getBoundingClientRect();
   }
-  
+
   // Първо скролваме до елемента
   // На мобилен центрираме по-агресивно
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -3446,36 +3643,36 @@ function showTutorialStep(idx) {
     } else {
       rect = target.getBoundingClientRect();
     }
-    
+
     // ПОЗИЦИОНИРАНЕ НА НЕОНОВИЯ РИНГ
     spotlight.style.width = `${rect.width + 16}px`;
     spotlight.style.height = `${rect.height + 16}px`;
     spotlight.style.top = `${rect.top - 8}px`;
     spotlight.style.left = `${rect.left - 8}px`;
-    
+
     // МАГИЯТА: Изрязване на "кристална дупка" в overlay-я
     const overlay = document.getElementById('tutorialOverlay');
     const hx1 = rect.left - 8;
     const hy1 = rect.top - 8;
     const hx2 = rect.right + 8;
     const hy2 = rect.bottom + 8;
-    
+
     // Инвертиран полигон (Дупка в центъра)
     overlay.style.clipPath = `polygon(0% 0%, 0% 100%, ${hx1}px 100%, ${hx1}px ${hy1}px, ${hx2}px ${hy1}px, ${hx2}px ${hy2}px, ${hx1}px ${hy2}px, ${hx1}px 100%, 100% 100%, 100% 0%)`;
-    
+
     // ИНТЕЛИГЕНТНО ПОЗИЦИОНИРАНЕ НА ПОДСКАЗКАТА
     const tooltip = document.getElementById('tutorialTooltip');
     const isMobile = window.innerWidth < 768;
-    const gap = isMobile ? 12 : 30; 
+    const gap = isMobile ? 12 : 30;
     const tipWidth = tooltip.offsetWidth || 340;
     const tipHeight = tooltip.offsetHeight || 180;
-    
+
     // 1. Мобилна логика: Специализирани позиции
     if (isMobile) {
       if (idx === 0) {
         // Първа стъпка - Текстът отива най-отгоре
         tooltip.style.bottom = 'auto';
-        tooltip.style.top = '15%'; 
+        tooltip.style.top = '15%';
         tooltip.style.left = '50%';
         tooltip.style.transform = 'translate(-50%, 0)';
       } else if (idx === activeTutorialSteps.length - 1) {
@@ -3501,25 +3698,25 @@ function showTutorialStep(idx) {
       // Стандартна логика за десктоп (Над или Под)
       tooltip.style.bottom = 'auto';
       tooltip.style.transform = 'translate(-50%, -50%)';
-      
+
       let finalLeft = rect.left + rect.width / 2;
       finalLeft = Math.max(tipWidth / 2 + 16, Math.min(window.innerWidth - tipWidth / 2 - 16, finalLeft));
-      
+
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
       let finalTop;
-      
+
       if (spaceBelow > tipHeight + gap * 2) {
         finalTop = rect.bottom + gap + tipHeight / 2;
       } else {
         finalTop = rect.top - gap - tipHeight / 2;
       }
-      
+
       tooltip.style.left = `${finalLeft}px`;
       tooltip.style.top = `${finalTop}px`;
     }
-    
-    
+
+
     // Обновяване на текста
     document.getElementById('tutorialText').textContent = step.text;
     document.getElementById('tutorialStepCount').textContent = `${idx + 1}/${activeTutorialSteps.length}`;
@@ -3540,9 +3737,9 @@ async function finishTutorial() {
   const overlay = document.getElementById('tutorialOverlay');
   overlay.style.opacity = '0';
   overlay.style.clipPath = 'none'; // Ресет на дупката
-  
+
   document.body.classList.remove('tutorial-active');
-  
+
   setTimeout(() => {
     overlay.setAttribute('hidden', '');
     overlay.style.opacity = '1';
@@ -3551,7 +3748,7 @@ async function finishTutorial() {
   // Persistence (Локално е достатъчно)
   const settings = LS.loadSettings();
   LS.saveSettings({ ...settings, tutorial_done: true });
-  
+
   toast('Супер! Сега си господар на своето време. 👋', 'success');
 }
 
@@ -3591,4 +3788,5 @@ window.dbLoadProfile = dbLoadProfile;
 window.dbSaveProfile = dbSaveProfile;
 window.refreshAll = refreshAll;
 window.toast = toast;
-window.sb = sb; // Supabase Client access
+// window.sb removed for security
+revealApp(); // Ensure initial reveal logic is available if needed
