@@ -352,7 +352,8 @@ async function dbSetEntry(dayKey, hours, rate, shift_type, shift_start = '', shi
         user_id: uid, day_key: dayKey, hours, rate,
         shift_type, shift_start, shift_end, status,
         planned_hours: ph, break_minutes, break_is_paid,
-        is_night, parent_shift_id: parentId, template_name
+        is_night, parent_shift_id: parentId, template_name,
+        currency_code: currency_code || state.profile?.currency_code || 'лв.'
       };
       if (existingId) payload.id = existingId;
       else payload.id = id;
@@ -1940,7 +1941,11 @@ async function saveHours() {
   const flatInputVal = flatInp ? parseFloat(flatInp.value) : NaN;
   
   const finalRate = shiftMode === 'flat' ? (flatInputVal || 0) : (rateInputVal || state.profile?.hourly_rate || DEFAULT_RATE);
-  const currency = document.getElementById('modalShiftCurrency')?.value || state.profile?.currency_code || 'лв.';
+  
+  // Строго взимаме валутата от селектора.
+  // Ако липсва, едва тогава ползваме профилната
+  const curSelect = document.getElementById('modalShiftCurrency');
+  const currency = (curSelect && curSelect.value) ? curSelect.value : (state.profile?.currency_code || 'лв.');
 
   saveBtn.disabled = true;
   saveBtn.innerHTML = '<span class="spinner"></span>';
