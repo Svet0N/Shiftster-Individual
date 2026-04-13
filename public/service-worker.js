@@ -1,75 +1,43 @@
-/**
- * Shifster Individual — service-worker.js
- * Cache-First with Network-Update strategy
- */
-
-const CACHE = 'shifster-v1';
-const PRECACHE = [
+const CACHE_NAME = 'shifster-v3'; // Вдигаме версията отново
+const PRECACHE_URLS = [
   '/',
-  '/index.html',
-  '/app.html',
+  '/auth',
+  '/app',
   '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  '/icons/icon.png',
+  '/icons/logo-nav.png',
+  '/icons/logo.png',
+  '/src/style.css',
+  '/src/app/script.js'
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE)
-      .then(async c => {
-        // Precache only local static files
-        for (const url of PRECACHE) {
-          try {
-            const response = await fetch(url);
-            if (response && response.ok) await c.put(url, response);
-          } catch (err) { /* silent fail */ }
-        }
-      })
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_URLS))
   );
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys().then(keys => Promise.all(
+      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+    ))
   );
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  if (e.request.url.includes('supabase.co')) return;
+  if (!e.request.url.startsWith(self.location.origin)) return;
 
   e.respondWith(
     caches.match(e.request).then(cached => {
       const fetchPromise = fetch(e.request).then(response => {
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
+        if (!response || response.status !== 200) return response;
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(e.request, copy));
         return response;
       }).catch(() => null);
 
-      return cached || fetchPromise.then(r => r || caches.match('/index.html'));
+      return cached || fetchPromise.then(r => r || (e.request.mode === 'navigate' ? caches.match('/') : null));
     })
   );
-});
-
-// Push notification support
-self.addEventListener('push', e => {
-  const data = e.data?.json() || { title: 'Shifster Individual', body: 'Ново известие' };
-  e.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: './icons/icon-192.png',
-      badge: './icons/icon-192.png',
-      vibrate: [200, 100, 200],
-    })
-  );
-});
-
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  e.waitUntil(clients.openWindow('./'));
 });

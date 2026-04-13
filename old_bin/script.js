@@ -664,17 +664,67 @@ async function logoutUser() {
 function enterDemoMode() {
   state.demoMode = true;
   state.user = { id: 'demo', email: 'demo@shifster.local' };
+  
+  // Clear any old demo data
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k && k.includes('demo')) localStorage.removeItem(k);
+  }
+
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  
   state.profile = {
     id: 'demo',
     full_name: 'Демо Потребител',
-    hourly_rate: DEFAULT_RATE,
+    hourly_rate: 8.50,
+    currency_code: 'лв.',
     accent_color: '#4f8dff',
-    monthly_goal: 160,
+    monthly_goal: 1200,
     role: 'user',
-    rate_history: [{ rate: DEFAULT_RATE, date: new Date().toISOString().split('T')[0] }],
+    rate_history: [{ rate: 8.50, date: `${year}-${String(month+1).padStart(2,'0')}-01` }],
     notif_time: '20:00',
-    custom_shifts: []
+    custom_shifts: [
+      { id: '1', name: 'Дневна', mode: 'hourly', start: '08:00', end: '17:00', rate: 8.50, val: 'лв.', color: '#4f8dff' },
+      { id: '2', name: 'Нощна', mode: 'hourly', start: '20:00', end: '05:00', rate: 9.50, val: 'лв.', color: '#a855f7' },
+      { id: '3', name: 'Твърда', mode: 'flat', rate: 60, val: 'лв.', color: '#3ecf8e' }
+    ]
   };
+
+  const demoEntries = {};
+  
+  // Fill the last 3-5 days with realistic shifts
+  for (let i = 1; i <= 6; i++) {
+    const day = d.getDate() - i;
+    if (day <= 0) break; // skip if previous month
+    
+    // Make weekends empty, just so it looks realistic
+    const tempDate = new Date(year, month, day);
+    if (tempDate.getDay() === 0 || tempDate.getDay() === 6) continue;
+
+    const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    
+    const isNight = i % 3 === 0;
+    
+    demoEntries[dayKey] = [{
+      id: 'demo-shift-' + i,
+      hours: isNight ? 8 : 8.5,
+      rate: isNight ? 9.50 : 8.50,
+      shift_type: isNight ? 'night' : 'normal',
+      shift_start: isNight ? '20:00' : '08:30',
+      shift_end: isNight ? '05:00' : '17:30',
+      status: 'actual',
+      planned_hours: 8,
+      break_minutes: 30,
+      break_is_paid: false,
+      is_night: isNight,
+      currency_code: 'лв.'
+    }];
+  }
+
+  LS.saveProfile('demo', state.profile);
+  LS.saveEntries('demo', year, month, demoEntries);
 
   if (window.location.pathname.includes('app.html')) {
     bootApp();

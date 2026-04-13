@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="bg">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a14" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Shifster" />
+  <title>Shifster Individual — Твоят Работен Пътник</title>
+
+  <!-- SEO & Social Media -->
+  <meta name="description"
+    content="Проследявай работните си часове, заплата и цели с лекота и сигурност. Всичко на едно място в Shifster Individual." />
+  <meta property="og:title" content="Shifster Individual — Твоят Работен Пътник" />
+  <meta property="og:description"
+    content="Удачното проследяване на заплата и цели. Всичко в реално време, на едно място." />
+  <meta property="og:image" content="/icons/logo.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/x-icon" href="/icons/icon.png" />
+  <link rel="shortcut icon" href="/icons/icon.png" />
+  <link rel="apple-touch-icon" href="/icons/icon.png" />
+  <link rel="stylesheet" href="/src/style.css" />
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.6/dist/umd/supabase.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- SheetJS (Excel) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body class="dark-mode" style="background: #0e1832; margin: 0;">
+
+  <!-- ─── AUTH SCREEN (LOGIN ONLY) ─── -->
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-card glass-card">
+      <div class="auth-header">
+        <img src="/icons/logo.png" alt="Shifster Logo" class="auth-logo-img" width="80" height="80">
+        <div class="auth-focus-text">
+          <h1>Влез в акаунта си</h1>
+          <p>Твоят личен асистент за смени и заплати.</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth="login">Вход</button>
+        <button class="auth-tab" data-auth="register">Регистрация</button>
+      </div>
+
+      <div id="authLogin" class="auth-form active">
+        <div class="field-group">
+          <div class="input-wrapper">
+            <span class="input-icon">📧</span>
+            <input type="email" id="loginEmail" placeholder="Имейл адрес" autocomplete="email" />
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="loginPassword" placeholder="Парола" autocomplete="current-password" />
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" id="loginBtn" style="margin-top:0.5rem;">Влез в профила</button>
+      </div>
+
+      <div id="authRegister" class="auth-form">
+        <div class="field-group">
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input type="text" id="regName" placeholder="Вашето име" />
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="input-wrapper">
+            <span class="input-icon">📧</span>
+            <input type="email" id="regEmail" placeholder="Имейл адрес" autocomplete="email" />
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="regPassword" placeholder="Парола (минимум 6 символа)"
+              autocomplete="new-password" />
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" id="registerBtn" style="margin-top:0.5rem;">Създай акаунт</button>
+      </div>
+
+      <div id="authMsg" class="auth-msg"></div>
+
+      <div id="resendContainer" hidden class="resend-box">
+        <button id="resendBtn" class="btn btn-ghost btn-sm">📩 Изпрати нов код за потвърждение</button>
+      </div>
+
+      <div class="sub-footer" style="margin-top: 30px;">
+        <!-- Ниво 1: Legal Links -->
+        <div class="sub-legal-links">
+          <a href="#" class="legal-link">Условия за ползване</a>
+          <span class="legal-dot">•</span>
+          <a href="#" class="legal-link">Политика за поверителност</a>
+        </div>
+
+        <!-- Ниво 2: Demo Bypass -->
+        <button class="btn sub-logout-btn" id="demoBtn">👀 Разгледай демо</button>
+
+        <!-- Ниво 3: Team Teaser -->
+        <div class="sub-coming-soon">
+          Shifster Team: Очаквайте скоро за вашия бизнес.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/app/script.js"></script>
+</body>
+
+</html>

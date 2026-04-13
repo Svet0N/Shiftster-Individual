@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/src/landing/index.html" },
+    { "source": "/auth", "destination": "/src/auth/index.html" },
+    { "source": "/app", "destination": "/src/app/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/service-worker.js",
+      "headers": [
+        { "key": "Service-Worker-Allowed", "value": "/" },
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
+  ]
+}
