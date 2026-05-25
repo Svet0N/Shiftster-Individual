@@ -3727,4 +3727,273 @@ body.tutorial-active {
   opacity: 0.8 !important;
   background-color: #000 !important;
 }
+
+/* ═══════════════════════════════════════════
+   SCHEDULE GENERATOR
+═══════════════════════════════════════════ */
+
+/* ── Entry button on dashboard ── */
+.schedule-gen-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  background: rgba(79, 141, 255, 0.08);
+  border: 1px solid rgba(79, 141, 255, 0.25);
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  color: var(--text);
+  text-align: left;
+  margin-bottom: 0.75rem;
+}
+.schedule-gen-btn:hover {
+  background: rgba(79, 141, 255, 0.14);
+  border-color: rgba(79, 141, 255, 0.5);
+  transform: translateY(-1px);
+}
+.schedule-gen-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+.schedule-gen-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.schedule-gen-text strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.schedule-gen-text small {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.schedule-gen-arrow {
+  font-size: 1.4rem;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Modal ── */
+.schedule-gen-modal {
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+#scheduleGenModal, #plusMenuModal, #customShiftsModal {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+#scheduleGenModal.active, #plusMenuModal.active, #customShiftsModal.active {
+  opacity: 1;
+}
+
+/* ── Field rows inside modal ── */
+.sg-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.sg-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+/* ── Preview area ── */
+.sg-preview-wrap {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+}
+.sg-preview-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sg-preview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.sg-preview-cell {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: default;
+}
+.sg-preview-cell.work {
+  background: rgba(79, 141, 255, 0.18);
+  border: 1px solid rgba(79, 141, 255, 0.4);
+}
+.sg-preview-cell.rest {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.sg-preview-summary {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════
+   PLUS MENU MODAL
+═══════════════════════════════════════════ */
+.plus-menu-modal {
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.modal-close-btn, .btn-close {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition);
+}
+
+.modal-close-btn:hover, .btn-close:hover {
+  color: var(--text);
+}
+
+.plus-menu-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.plus-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  width: 100%;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+  color: var(--text);
+  text-align: left;
+}
+
+.plus-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+
+.plus-menu-btn .pm-icon-wrap {
+  width: 2.85rem;
+  height: 2.85rem;
+  border-radius: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.plus-menu-btn.pm-btn-blue .pm-icon-wrap {
+  background: rgba(79, 141, 255, 0.15);
+  border: 1px solid rgba(79, 141, 255, 0.3);
+  color: var(--accent);
+}
+
+.plus-menu-btn.pm-btn-green .pm-icon-wrap {
+  background: rgba(62, 207, 142, 0.15);
+  border: 1px solid rgba(62, 207, 142, 0.3);
+  color: var(--green);
+}
+
+.plus-menu-btn.pm-btn-purple .pm-icon-wrap {
+  background: rgba(176, 139, 255, 0.15);
+  border: 1px solid rgba(176, 139, 255, 0.3);
+  color: var(--purple);
+}
+
+.plus-menu-btn .pm-icon {
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plus-menu-btn .pm-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.plus-menu-btn .pm-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.plus-menu-btn .pm-sub {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.plus-menu-btn .pm-arrow {
+  font-size: 1.4rem;
+  color: var(--text-dim);
+  transition: transform var(--transition), color var(--transition);
+}
+
+.plus-menu-btn:hover .pm-arrow {
+  color: var(--text);
+  transform: translateX(3px);
+}
+
+.plus-menu-btn .pm-arrow.rotated {
+  transform: rotate(90deg);
+}
+
+.plus-menu-btn:hover .pm-arrow.rotated {
+  transform: rotate(90deg) translateY(-3px);
+}
+
 

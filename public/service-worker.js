@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shifster-v3'; // Вдигаме версията отново
+const CACHE_NAME = 'shifster-v4'; // Вдигаме версията до v4 за форсирано обновяване
 const PRECACHE_URLS = [
   '/',
   '/auth',
@@ -12,6 +12,7 @@ const PRECACHE_URLS = [
 ];
 
 self.addEventListener('install', e => {
+  self.skipWaiting(); // Форсираме инсталацията
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_URLS))
   );
@@ -19,9 +20,12 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-    ))
+    Promise.all([
+      self.clients.claim(), // Поемаме управлението веднага
+      caches.keys().then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      ))
+    ])
   );
 });
 

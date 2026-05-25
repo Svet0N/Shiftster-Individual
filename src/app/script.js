@@ -508,11 +508,7 @@ function sumHours(entries) {
     if (!Array.isArray(dayArr)) dayArr = [dayArr];
     dayArr.forEach(v => {
       if (v.status === 'planned') return;
-      let hrs = v.hours || 0;
-      if (v.break_minutes > 0 && !v.break_is_paid) {
-        hrs = Math.max(0, hrs - (v.break_minutes / 60));
-      }
-      total += hrs;
+      total += v.hours || 0;
     });
   });
   return total;
@@ -524,10 +520,7 @@ function sumSalary(entries) {
     if (!Array.isArray(dayArr)) dayArr = [dayArr];
     dayArr.forEach(v => {
       if (v.status === 'planned') return;
-      let hrs = v.hours || 0;
-      if (v.break_minutes > 0 && !v.break_is_paid) {
-        hrs = Math.max(0, hrs - (v.break_minutes / 60));
-      }
+      const hrs = v.hours || 0;
       const rate = v.rate || v.hourly_rate || DEFAULT_RATE;
       const cur = v.currency_code || 'лв.';
       totals[cur] = (totals[cur] || 0) + (hrs * rate);
@@ -548,10 +541,7 @@ function calcForecast(entries) {
   Object.values(entries).forEach(dayArr => {
     if (!Array.isArray(dayArr)) dayArr = [dayArr];
     dayArr.forEach(v => {
-      let hrs = v.hours || 0;
-      if (v.break_minutes > 0 && !v.break_is_paid) {
-        hrs = Math.max(0, hrs - (v.break_minutes / 60));
-      }
+      const hrs = v.hours || 0;
       total += hrs * (v.rate || DEFAULT_RATE);
     });
   });
@@ -1004,7 +994,8 @@ async function renderDashboard() {
     }
   }
 
-  animateValue(document.getElementById('statHours'), fmt(financials.hoursWorked));
+  const statHrsEl = document.getElementById('statHours');
+  if (statHrsEl) animateValue(statHrsEl, fmt(financials.hoursWorked));
 
   // New FinTech: Update Hours Sub directly by ID
   const expHoursEl = document.getElementById('statExpectedHours');
@@ -1081,10 +1072,7 @@ async function renderDashboard() {
   const widget = document.getElementById('plannedWidget');
   const plannedEntry = (state.entries[todayStr] || []).find(v => v.status === 'planned' && (v.hours || 0) > 0);
   if (plannedEntry) {
-    let netHrs = plannedEntry.hours;
-    if (plannedEntry.break_minutes > 0 && !plannedEntry.break_is_paid) {
-      netHrs = Math.max(0, netHrs - (plannedEntry.break_minutes / 60));
-    }
+    const netHrs = plannedEntry.hours || 0;
     document.getElementById('plannedWidgetText').textContent = `Ранна смяна: ${plannedEntry.shift_start || ''} - ${plannedEntry.shift_end || ''} (${fmt(netHrs)}ч)`;
     widget.style.display = 'block';
 
@@ -1359,11 +1347,7 @@ function renderMiniChart() {
     const dk = d.toISOString().split('T')[0];
     const dayArr = state.entries[dk] || [];
     dayArr.forEach(entry => {
-      let nh = entry.hours || 0;
-      if (entry.break_minutes > 0 && !entry.break_is_paid) {
-        nh = Math.max(0, nh - (entry.break_minutes / 60));
-      }
-      values[i] += nh;
+      values[i] += entry.hours || 0;
     });
   }
 
@@ -1457,11 +1441,7 @@ function renderCalendar() {
       let mainShift = 'normal';
 
       dayArr.forEach(entry => {
-        let nh = entry.hours || 0;
-        if (entry.break_minutes > 0 && !entry.break_is_paid) {
-          nh = Math.max(0, nh - (entry.break_minutes / 60));
-        }
-        dayNetTotal += nh;
+        dayNetTotal += entry.hours || 0;
         if (entry.status === 'planned') hasPlanned = true;
         else hasActual = true;
         if (entry.is_night) hasNight = true;
@@ -2022,10 +2002,9 @@ async function renderHistoryDetail(ym) {
     const [yS, mS, dS] = v.dayKey.split('-').map(Number);
     const shiftLabel = { normal: '—', overtime: '🔴 Извън.' }[v.shift_type] || '—';
 
-    let netHrs = v.hours || 0;
+    const netHrs = v.hours || 0;
     let breakText = '—';
     if (v.break_minutes > 0) {
-      if (!v.break_is_paid) netHrs = Math.max(0, netHrs - (v.break_minutes / 60));
       breakText = `${v.break_minutes}м (${v.break_is_paid ? 'платена' : 'неплатена'})`;
     }
 
@@ -2043,7 +2022,7 @@ async function renderHistoryDetail(ym) {
     return `<tr>
       <td data-label="Дата">${dS} ${MONTHS_BG[mS - 1]} ${yS} ${v.is_night ? '<span title="Нощна смяна">🌙</span>' : ''}</td>
       <td data-label="Часове" style="font-family:var(--mono); font-size:0.9rem">${timeRange}</td>
-      <td data-label="Бруто/Нето">${v.shift_mode === 'flat' ? '—' : `${fmt(v.hours)} ч / <span style="font-size:0.8rem;color:var(--text-dim)">Нето: ${fmt(netHrs)}ч</span>`}</td>
+      <td data-label="Бруто/Нето">${v.shift_mode === 'flat' ? '—' : `${fmt(v.planned_hours || v.hours)} ч / <span style="font-size:0.8rem;color:var(--text-dim)">Нето: ${fmt(netHrs)}ч</span>`}</td>
       <td data-label="Почивка">${v.shift_mode === 'flat' ? '—' : breakText}</td>
       <td data-label="Ставка">${fmt(finalRate)} ${v.currency_code || 'лв.'}</td>
       <td data-label="Заплата">${fmt(finalSalary)} ${v.currency_code || 'лв.'}</td>
@@ -2056,10 +2035,7 @@ async function renderHistoryDetail(ym) {
   let totalHoursNet = 0;
   allShifts.forEach(v => {
     if (v.status === 'planned') return;
-    let netHrs = v.hours || 0;
-    if (v.break_minutes > 0 && !v.break_is_paid) {
-      netHrs = Math.max(0, netHrs - (v.break_minutes / 60));
-    }
+    const netHrs = v.hours || 0;
     const rate = v.rate || v.hourly_rate || DEFAULT_RATE;
     const cur = v.currency_code || 'лв.';
     historyTotals[cur] = (historyTotals[cur] || 0) + (netHrs * rate);
@@ -2129,11 +2105,7 @@ function renderBarChart() {
     const dayArr = state.entries[dk] || [];
     let h = 0;
     dayArr.forEach(entry => {
-      let nh = entry.hours || 0;
-      if (entry.break_minutes > 0 && !entry.break_is_paid) {
-        nh = Math.max(0, nh - (entry.break_minutes / 60));
-      }
-      h += nh;
+      h += entry.hours || 0;
     });
     if (h > 0) { labels.push(String(d)); values.push(h); }
   }
@@ -2408,29 +2380,58 @@ function renderProfile() {
 
 function renderCustomShifts() {
   const container = document.getElementById('tplList');
-  if (!container) return;
+  const pmContainer = document.getElementById('pmTplList');
   const shifts = state.profile?.custom_shifts || [];
-  if (shifts.length === 0) {
-    container.innerHTML = '<div style="font-size:0.8rem;color:var(--text-dim);text-align:center;">Няма добавени шаблони</div>';
-    return;
-  }
-  container.innerHTML = shifts.map(s => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-sm)">
-      <div>
-        <div style="font-size:0.85rem;font-weight:600">${s.name} ${s.isDefault ? '<span style="color:var(--accent);font-size:0.7rem;margin-left:4px">(Подразбиране)</span>' : ''}</div>
-        <div style="font-size:0.75rem;color:var(--text-dim);font-family:var(--mono)">
-          ${s.start} - ${s.end} 
-          ${s.break_minutes > 0 ? `<span style="opacity:0.7;margin-left:5px">☕ ${s.break_minutes}м (${s.break_is_paid ? 'пл.' : 'непл.'})</span>` : ''}
-          ${s.rate ? `<span style="opacity:0.7;margin-left:5px">| 💰 ${s.rate} ${s.currency || ''}</span>` : ''}
+
+  const noTemplatesHTML = '<div style="font-size:0.8rem;color:var(--text-dim);text-align:center;">Няма добавени шаблони</div>';
+
+  if (container) {
+    if (shifts.length === 0) {
+      container.innerHTML = noTemplatesHTML;
+    } else {
+      container.innerHTML = shifts.map(s => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <div>
+            <div style="font-size:0.85rem;font-weight:600">${s.name} ${s.isDefault ? '<span style="color:var(--accent);font-size:0.7rem;margin-left:4px">(Подразбиране)</span>' : ''}</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);font-family:var(--mono)">
+              ${s.start} - ${s.end} 
+              ${s.break_minutes > 0 ? `<span style="opacity:0.7;margin-left:5px">☕ ${s.break_minutes}м (${s.break_is_paid ? 'пл.' : 'непл.'})</span>` : ''}
+              ${s.rate ? `<span style="opacity:0.7;margin-left:5px">| 💰 ${s.rate} ${s.currency || ''}</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:0.3rem">
+            ${!s.isDefault ? `<button class="btn btn-outline btn-sm" style="padding:0.25rem 0.6rem" onclick="appSetDefaultCustomShift('${s.id}')" title="Направи по подразбиране">⭐</button>` : ''}
+            <button class="btn btn-outline btn-sm" style="padding:0.25rem 0.6rem" onclick="appEditCustomShift('${s.id}')" title="Редактирай">✏️</button>
+            <button class="btn btn-danger btn-sm" style="padding:0.25rem 0.6rem" onclick="appDeleteCustomShift('${s.id}')" title="Изтрий">🗑</button>
+          </div>
         </div>
-      </div>
-      <div style="display:flex;gap:0.3rem">
-        ${!s.isDefault ? `<button class="btn btn-outline btn-sm" style="padding:0.25rem 0.6rem" onclick="appSetDefaultCustomShift('${s.id}')" title="Направи по подразбиране">⭐</button>` : ''}
-        <button class="btn btn-outline btn-sm" style="padding:0.25rem 0.6rem" onclick="appEditCustomShift('${s.id}')" title="Редактирай">✏️</button>
-        <button class="btn btn-danger btn-sm" style="padding:0.25rem 0.6rem" onclick="appDeleteCustomShift('${s.id}')" title="Изтрий">🗑</button>
-      </div>
-    </div>
-  `).join('');
+      `).join('');
+    }
+  }
+
+  if (pmContainer) {
+    if (shifts.length === 0) {
+      pmContainer.innerHTML = noTemplatesHTML;
+    } else {
+      pmContainer.innerHTML = shifts.map(s => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <div>
+            <div style="font-size:0.85rem;font-weight:600">${s.name} ${s.isDefault ? '<span style="color:var(--accent);font-size:0.7rem;margin-left:4px">(Подразбиране)</span>' : ''}</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);font-family:var(--mono)">
+              ${s.start} - ${s.end} 
+              ${s.break_minutes > 0 ? `<span style="opacity:0.7;margin-left:5px">☕ ${s.break_minutes}м (${s.break_is_paid ? 'пл.' : 'непл.'})</span>` : ''}
+              ${s.rate ? `<span style="opacity:0.7;margin-left:5px">| 💰 ${s.rate} ${s.currency || ''}</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:0.3rem">
+            ${!s.isDefault ? `<button class="btn btn-outline btn-sm" style="padding:0.25rem 0.6rem" onclick="appSetDefaultCustomShift('${s.id}')" title="Направи по подразбиране">⭐</button>` : ''}
+            <button class="btn btn-outline btn-sm" style="padding:0.25rem 0.6rem" onclick="pmAppEditCustomShift('${s.id}')" title="Редактирай">✏️</button>
+            <button class="btn btn-danger btn-sm" style="padding:0.25rem 0.6rem" onclick="appDeleteCustomShift('${s.id}')" title="Изтрий">🗑</button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
 }
 
 window.appEditCustomShift = function (id) {
@@ -2446,9 +2447,41 @@ window.appEditCustomShift = function (id) {
   document.getElementById('tplRate').value = s.rate || '';
   document.getElementById('tplCurrency').value = s.currency || '';
 
-  document.getElementById('saveTplBtn').dataset.editingId = id;
-  document.getElementById('saveTplBtn').textContent = '💾 Обнови шаблон';
+  const saveBtn = document.getElementById('saveTplBtn');
+  if (saveBtn) {
+    saveBtn.dataset.editingId = id;
+    saveBtn.textContent = '💾 Обнови шаблон';
+  }
   document.getElementById('tplName').focus();
+};
+
+window.pmAppEditCustomShift = function (id) {
+  const shifts = state.profile?.custom_shifts || [];
+  const s = shifts.find(x => x.id === id);
+  if (!s) return;
+
+  const content = document.getElementById('pmTplCollapseContent');
+  const btnCollapse = document.getElementById('pmTplExpandBtn');
+  if (content && btnCollapse && (content.style.display === 'none' || content.style.display === '')) {
+    content.style.display = 'flex';
+    btnCollapse.classList.add('rotated');
+  }
+
+  document.getElementById('pmTplName').value = s.name;
+  document.getElementById('pmTplStart').value = s.start;
+  document.getElementById('pmTplEnd').value = s.end;
+  document.getElementById('pmTplBreak').value = s.break_minutes || '';
+  if (s.break_is_paid) document.getElementById('pmTplBreakPaid').checked = true;
+  else document.getElementById('pmTplBreakUnpaid').checked = true;
+  document.getElementById('pmTplRate').value = s.rate || '';
+  document.getElementById('pmTplCurrency').value = s.currency || '';
+
+  const saveBtn = document.getElementById('pmSaveTplBtn');
+  if (saveBtn) {
+    saveBtn.dataset.editingId = id;
+    saveBtn.textContent = '💾 Обнови шаблон';
+  }
+  document.getElementById('pmTplName').focus();
 };
 
 window.appSetDefaultCustomShift = async function (id) {
@@ -2456,20 +2489,22 @@ window.appSetDefaultCustomShift = async function (id) {
   shifts.forEach(s => s.isDefault = (s.id === id));
   await dbSaveProfile({ custom_shifts: shifts });
   renderCustomShifts();
+  
+  // Update select templates
+  sgUpdateTemplateSelect(shifts);
+  
   toast('Стандартният шаблон е обновен', 'info');
 };
 
 window.appDeleteCustomShift = async function (id) {
   const shifts = state.profile?.custom_shifts || [];
   const filtered = shifts.filter(s => s.id !== id);
-  // Re-elect default if we deleted default
   if (!filtered.find(s => s.isDefault) && filtered.length > 0) {
     filtered[0].isDefault = true;
   }
 
-  // Clear edit state if we delete the currently edited template
   const btn = document.getElementById('saveTplBtn');
-  if (btn.dataset.editingId === id) {
+  if (btn && btn.dataset.editingId === id) {
     document.getElementById('tplName').value = '';
     document.getElementById('tplStart').value = '';
     document.getElementById('tplEnd').value = '';
@@ -2477,10 +2512,33 @@ window.appDeleteCustomShift = async function (id) {
     btn.textContent = '➕ Добави шаблон';
   }
 
+  const pmBtn = document.getElementById('pmSaveTplBtn');
+  if (pmBtn && pmBtn.dataset.editingId === id) {
+    document.getElementById('pmTplName').value = '';
+    document.getElementById('pmTplStart').value = '';
+    document.getElementById('pmTplEnd').value = '';
+    delete pmBtn.dataset.editingId;
+    pmBtn.textContent = '➕ Добави шаблон';
+  }
+
   await dbSaveProfile({ custom_shifts: filtered });
   renderCustomShifts();
+  sgUpdateTemplateSelect(filtered);
   toast('Шаблонът е изтрит', 'info');
 };
+
+function sgUpdateTemplateSelect(shifts) {
+  const tplSelect = document.getElementById('sgShiftTemplate');
+  if (tplSelect) {
+    tplSelect.innerHTML = '<option value="__default__">-- Профилна ставка --</option>';
+    (shifts || []).forEach(tpl => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify(tpl);
+      opt.textContent = `${tpl.name} (${tpl.start}–${tpl.end})`;
+      tplSelect.appendChild(opt);
+    });
+  }
+}
 
 async function saveCustomShiftTemplate() {
   const tplNameEl = document.getElementById('tplName');
@@ -2496,12 +2554,11 @@ async function saveCustomShiftTemplate() {
   }
 
   name = name.trim();
-
   if (!name || !start || !end) { toast('Попълнете всички полета', 'error'); return; }
 
   const shifts = state.profile?.custom_shifts || [];
   const btn = document.getElementById('saveTplBtn');
-  const editingId = btn.dataset.editingId;
+  const editingId = btn ? btn.dataset.editingId : null;
 
   const breakMin = parseInt(document.getElementById('tplBreak').value) || 0;
   const breakIsPaid = document.querySelector('input[name="tplBreakType"]:checked').value === 'paid';
@@ -2516,11 +2573,13 @@ async function saveCustomShiftTemplate() {
       s.rate = tplRate;
       s.currency = tplCurrency;
     }
-    delete btn.dataset.editingId;
-    btn.textContent = '➕ Добави шаблон';
+    if (btn) {
+      delete btn.dataset.editingId;
+      btn.textContent = '➕ Добави шаблон';
+    }
     toast('Шаблонът е обновен', 'success');
   } else {
-    const isDefault = shifts.length === 0; // first one is default
+    const isDefault = shifts.length === 0;
     shifts.push({
       id: Date.now().toString(),
       name, start, end, isDefault,
@@ -2538,7 +2597,71 @@ async function saveCustomShiftTemplate() {
   document.getElementById('tplBreak').value = '0';
   document.getElementById('tplRate').value = '';
   document.getElementById('tplCurrency').value = '';
+  
   renderCustomShifts();
+  sgUpdateTemplateSelect(shifts);
+}
+
+async function savePmCustomShiftTemplate() {
+  const tplNameEl = document.getElementById('pmTplName');
+  const start = document.getElementById('pmTplStart').value;
+  const end = document.getElementById('pmTplEnd').value;
+  let name = tplNameEl.value;
+
+  if (name.length > 0 && name.trim().length === 0) {
+    toast('Името на шаблона не може да бъде само интервали', 'error');
+    tplNameEl.value = '';
+    tplNameEl.focus();
+    return;
+  }
+
+  name = name.trim();
+  if (!name || !start || !end) { toast('Попълнете всички полета', 'error'); return; }
+
+  const shifts = state.profile?.custom_shifts || [];
+  const btn = document.getElementById('pmSaveTplBtn');
+  const editingId = btn ? btn.dataset.editingId : null;
+
+  const breakMin = parseInt(document.getElementById('pmTplBreak').value) || 0;
+  const breakIsPaid = document.querySelector('input[name="pmTplBreakType"]:checked').value === 'paid';
+  const tplRate = parseFloat(document.getElementById('pmTplRate').value) || null;
+  const tplCurrency = document.getElementById('pmTplCurrency').value || null;
+
+  if (editingId) {
+    const s = shifts.find(x => x.id === editingId);
+    if (s) {
+      s.name = name; s.start = start; s.end = end;
+      s.break_minutes = breakMin; s.break_is_paid = breakIsPaid;
+      s.rate = tplRate;
+      s.currency = tplCurrency;
+    }
+    if (btn) {
+      delete btn.dataset.editingId;
+      btn.textContent = '➕ Добави шаблон';
+    }
+    toast('Шаблонът е обновен', 'success');
+  } else {
+    const isDefault = shifts.length === 0;
+    shifts.push({
+      id: Date.now().toString(),
+      name, start, end, isDefault,
+      break_minutes: breakMin,
+      break_is_paid: breakIsPaid,
+      rate: tplRate,
+      currency: tplCurrency
+    });
+    toast('Шаблонът е добавен', 'success');
+  }
+
+  await dbSaveProfile({ custom_shifts: shifts });
+
+  document.getElementById('pmTplName').value = '';
+  document.getElementById('pmTplBreak').value = '0';
+  document.getElementById('pmTplRate').value = '';
+  document.getElementById('pmTplCurrency').value = '';
+  
+  renderCustomShifts();
+  sgUpdateTemplateSelect(shifts);
 }
 
 /**
@@ -3049,9 +3172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   document.getElementById('bnavFab')?.addEventListener('click', () => {
-    const today = new Date();
-    const dk = today.toISOString().split('T')[0];
-    openHourModal(dk, today.getDate());
+    openPlusMenu();
   });
 
   // Calendar page month nav
@@ -3263,6 +3384,11 @@ function wireAppEvents() {
 
   // Custom templates setting
   document.getElementById('saveTplBtn')?.addEventListener('click', saveCustomShiftTemplate);
+
+  document.getElementById('pmSaveTplBtn')?.addEventListener('click', savePmCustomShiftTemplate);
+  document.getElementById('customShiftsModal')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('customShiftsModal')) closeCustomShiftsModal();
+  });
 
   // Clear day
   document.getElementById('clearDay')?.addEventListener('click', async () => {
@@ -3724,6 +3850,265 @@ if (document.readyState === 'loading') {
   init();
 }
 
+/* ═══════════════════════════════════════════
+   PLUS MENU (FAB OVERLAY)
+═══════════════════════════════════════════ */
+function openPlusMenu() {
+  const modal = document.getElementById('plusMenuModal');
+  if (!modal) return;
+  modal.removeAttribute('hidden');
+  requestAnimationFrame(() => modal.classList.add('active'));
+}
+
+function closePlusMenu() {
+  const modal = document.getElementById('plusMenuModal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  setTimeout(() => modal.setAttribute('hidden', ''), 280);
+}
+
+function onPlusMenuSelect(type) {
+  closePlusMenu();
+  if (type === 'generator') {
+    openScheduleGenerator();
+  } else if (type === 'manual') {
+    const today = new Date();
+    const dk = today.toISOString().split('T')[0];
+    openHourModal(dk, today.getDate());
+  }
+}
+
+function openCustomShiftsModal() {
+  closePlusMenu();
+  const modal = document.getElementById('customShiftsModal');
+  if (!modal) return;
+  modal.removeAttribute('hidden');
+  requestAnimationFrame(() => modal.classList.add('active'));
+}
+
+function closeCustomShiftsModal() {
+  const modal = document.getElementById('customShiftsModal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  setTimeout(() => modal.setAttribute('hidden', ''), 280);
+}
+
+/* ═══════════════════════════════════════════
+   SCHEDULE GENERATOR
+═══════════════════════════════════════════ */
+
+const SG_PATTERNS = {
+  '2x2': { work: 2, rest: 2 },
+  '3x1': { work: 3, rest: 1 },
+  '5x2': { work: 5, rest: 2 },
+  '4x4': { work: 4, rest: 4 },
+};
+
+function sgGetPattern() {
+  const val = document.getElementById('sgPattern')?.value;
+  if (val === 'custom') {
+    const w = parseInt(document.getElementById('sgCustomWork')?.value) || 2;
+    const r = parseInt(document.getElementById('sgCustomRest')?.value) || 2;
+    return { work: w, rest: r };
+  }
+  return SG_PATTERNS[val] || SG_PATTERNS['2x2'];
+}
+
+// Returns array of {dateStr, isWork} for a date range aligned to pattern
+function sgGenerateDays(startDate, endDate, pattern) {
+  const days = [];
+  let cur = new Date(startDate);
+  let pos = 0; // position inside the cycle
+  const cycle = pattern.work + pattern.rest;
+
+  while (cur <= endDate) {
+    const isWork = (pos % cycle) < pattern.work;
+    days.push({ dateStr: cur.toISOString().split('T')[0], isWork });
+    cur.setDate(cur.getDate() + 1);
+    pos++;
+  }
+  return days;
+}
+
+function sgGetDateRange() {
+  const period = document.getElementById('sgPeriod')?.value || 'month';
+  const now = new Date();
+  let startYear = now.getFullYear();
+  let startMon = now.getMonth(); // 0-indexed
+
+  if (period === 'next') {
+    startMon++;
+    if (startMon > 11) { startMon = 0; startYear++; }
+  }
+
+  const endMon = period === '2months' ? startMon + 1 : startMon;
+  const endYear = endMon > 11 ? startYear + 1 : startYear;
+  const clampedEndMon = endMon > 11 ? 0 : endMon;
+
+  const rangeStart = new Date(startYear, startMon, 1);
+  const rangeEnd = new Date(endYear, clampedEndMon + 1, 0); // last day of end month
+  return { rangeStart, rangeEnd, startYear, startMon };
+}
+
+function openScheduleGenerator() {
+  const modal = document.getElementById('scheduleGenModal');
+  if (!modal) return;
+
+  // Set default start date = today
+  const todayStr = new Date().toISOString().split('T')[0];
+  const startEl = document.getElementById('sgStartDate');
+  if (startEl) startEl.value = todayStr;
+
+  // Populate shift templates from profile
+  const tplSelect = document.getElementById('sgShiftTemplate');
+  if (tplSelect) {
+    tplSelect.innerHTML = '<option value="__default__">-- Профилна ставка --</option>';
+    (state.profile?.custom_shifts || []).forEach(tpl => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify(tpl);
+      opt.textContent = `${tpl.name} (${tpl.start}–${tpl.end})`;
+      tplSelect.appendChild(opt);
+    });
+  }
+
+  sgUpdatePreview();
+  modal.removeAttribute('hidden');
+  requestAnimationFrame(() => modal.classList.add('active'));
+}
+
+function closeScheduleGenerator() {
+  const modal = document.getElementById('scheduleGenModal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  setTimeout(() => modal.setAttribute('hidden', ''), 280);
+}
+
+function sgUpdatePreview() {
+  const pattern = document.getElementById('sgPattern')?.value;
+
+  // Show/hide custom row
+  const customRow = document.getElementById('sgCustomRow');
+  if (customRow) customRow.style.display = pattern === 'custom' ? 'flex' : 'none';
+
+  const { rangeStart } = sgGetDateRange();
+  const startDateVal = document.getElementById('sgStartDate')?.value;
+  const patternObj = sgGetPattern();
+
+  // Use the selected start date as the "first work day" anchor
+  const anchor = startDateVal ? new Date(startDateVal) : rangeStart;
+
+  // Generate 14 days for preview from anchor
+  const previewEnd = new Date(anchor);
+  previewEnd.setDate(previewEnd.getDate() + 13);
+  const previewDays = sgGenerateDays(anchor, previewEnd, patternObj);
+
+  // Render preview grid
+  const grid = document.getElementById('sgPreviewGrid');
+  if (grid) {
+    grid.innerHTML = '';
+    previewDays.forEach(d => {
+      const cell = document.createElement('div');
+      cell.className = `sg-preview-cell ${d.isWork ? 'work' : 'rest'}`;
+      const dt = new Date(d.dateStr);
+      cell.textContent = d.isWork ? '🌞' : '💤';
+      cell.title = `${dt.getDate()} – ${d.isWork ? 'Работен ден' : 'Почивен ден'}`;
+      grid.appendChild(cell);
+    });
+  }
+
+  // Summary: count work days in full period
+  const { rangeEnd } = sgGetDateRange();
+  const allDays = sgGenerateDays(anchor, rangeEnd, patternObj);
+  const workCount = allDays.filter(d => d.isWork && new Date(d.dateStr) >= rangeStart).length;
+
+  const summary = document.getElementById('sgPreviewSummary');
+  if (summary) {
+    summary.textContent = `Работни дни в избрания период: ${workCount}`;
+  }
+}
+
+async function generateSchedule() {
+  const pattern = sgGetPattern();
+  const startDateVal = document.getElementById('sgStartDate')?.value;
+  const tplVal = document.getElementById('sgShiftTemplate')?.value;
+
+  const anchor = startDateVal ? new Date(startDateVal) : new Date();
+  const { rangeStart, rangeEnd } = sgGetDateRange();
+
+  // Resolve shift template params
+  let shiftStart = '', shiftEnd = '', hours = 8, shiftRate = state.profile?.hourly_rate || DEFAULT_RATE;
+  let tplName = null, breakMinutes = 0, breakIsPaid = false;
+  if (tplVal && tplVal !== '__default__') {
+    try {
+      const tpl = JSON.parse(tplVal);
+      shiftStart = tpl.start || '';
+      shiftEnd = tpl.end || '';
+      tplName = tpl.name || null;
+      shiftRate = tpl.rate || shiftRate;
+      breakMinutes = parseInt(tpl.break_minutes) || 0;
+      breakIsPaid = !!tpl.break_is_paid;
+      if (shiftStart && shiftEnd) {
+        const calcH = calcShiftHours(shiftStart, shiftEnd);
+        if (calcH) hours = calcH;
+      }
+    } catch (e) { /* keep defaults */ }
+  }
+
+  // Generate all days in range
+  const allDays = sgGenerateDays(anchor, rangeEnd, pattern);
+  const workDays = allDays.filter(d => {
+    const dt = new Date(d.dateStr);
+    return d.isWork && dt >= rangeStart && dt <= rangeEnd;
+  });
+
+  // Check for conflicts (existing entries)
+  const existingKeys = new Set(Object.keys(state.entries || {}));
+  const conflicts = workDays.filter(d => existingKeys.has(d.dateStr));
+
+  if (conflicts.length > 0) {
+    const confirmed = confirm(
+      `⚠️ ${conflicts.length} дни вече имат записани смени.\n\n` +
+      `Искаш ли да ги презапишеш?\n` +
+      `(Натисни OK за да презапишеш, Отказ за да пропуснеш запълнените дни)`
+    );
+    if (!confirmed) {
+      const safeWorkDays = workDays.filter(d => !existingKeys.has(d.dateStr));
+      await sgWriteDays(safeWorkDays, hours, shiftRate, shiftStart, shiftEnd, tplName, breakMinutes, breakIsPaid);
+    } else {
+      await sgWriteDays(workDays, hours, shiftRate, shiftStart, shiftEnd, tplName, breakMinutes, breakIsPaid);
+    }
+  } else {
+    await sgWriteDays(workDays, hours, shiftRate, shiftStart, shiftEnd, tplName, breakMinutes, breakIsPaid);
+  }
+
+  closeScheduleGenerator();
+  state.entries = await dbLoadEntries(state.viewYear, state.viewMonth);
+  await refreshAll();
+  toast(`✅ Генерирани ${workDays.length} смени!`, 'success');
+}
+
+async function sgWriteDays(days, hours, rate, shiftStart, shiftEnd, tplName, breakMinutes = 0, breakIsPaid = false) {
+  for (const d of days) {
+    await dbSetEntry(
+      d.dateStr,
+      hours,
+      rate,
+      'normal',
+      shiftStart,
+      shiftEnd,
+      'planned',
+      hours,
+      breakMinutes,
+      breakIsPaid,
+      false,
+      null,
+      null,
+      tplName,
+      state.profile?.currency_code || 'лв.'
+    );
+  }
+}
+
 // Излагаме функциите към Window за съвместимост с HTML (onclick и т.н.)
 window.onboardingBack = onboardingBack;
 window.switchTab = switchTab;
@@ -3744,6 +4129,16 @@ window.confirmReset = confirmReset;
 window.doReset = doReset;
 window.renderHistoryDetail = renderHistoryDetail;
 window.saveCustomShiftTemplate = saveCustomShiftTemplate;
+window.openScheduleGenerator = openScheduleGenerator;
+window.closeScheduleGenerator = closeScheduleGenerator;
+window.sgUpdatePreview = sgUpdatePreview;
+window.generateSchedule = generateSchedule;
+window.openPlusMenu = openPlusMenu;
+window.closePlusMenu = closePlusMenu;
+window.onPlusMenuSelect = onPlusMenuSelect;
+window.savePmCustomShiftTemplate = savePmCustomShiftTemplate;
+window.openCustomShiftsModal = openCustomShiftsModal;
+window.closeCustomShiftsModal = closeCustomShiftsModal;
 
 // Разширени функции за конзолно дебъгване
 window.state = state;

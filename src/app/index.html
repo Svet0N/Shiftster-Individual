@@ -270,6 +270,7 @@
                     </div>
                 </div>
 
+
                 <!-- 4. GOAL PROGRESS -->
                 <div class="goal-section glass-card">
                     <div class="goal-header">
@@ -689,10 +690,12 @@
                 <span class="hours-preview-label">часа</span>
             </div>
             <div id="breakPreviewText" class="break-preview-text" style="display:none"></div>
-            <button class="btn btn-primary btn-block" id="saveHoursBtn">✓ Запази смяната</button>
-            <div class="modal-footer">
-                <button class="btn btn-ghost" id="clearDay">🗑 Изчисти</button>
-                <button class="btn btn-ghost" id="closeModal">Отказ</button>
+            <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-top:1.5rem">
+                <button class="btn btn-ghost" id="clearDay" style="padding-left:0; color:var(--text-dim)">🗑 Изчисти</button>
+                <div style="display:flex; gap:0.5rem">
+                    <button class="btn btn-primary" id="saveHoursBtn">Запази</button>
+                    <button class="btn btn-ghost" id="closeModal">Отказ</button>
+                </div>
             </div>
         </div>
     </div>
@@ -791,6 +794,175 @@
         <span class="bnav-dot"></span>
       </button>
     </nav>
+
+    <!-- ════ PLUS MENU MODAL ════ -->
+    <div id="plusMenuModal" class="modal-overlay" hidden>
+        <div class="modal plus-menu-modal">
+            <div class="modal-header">
+                <h3>Добавяне</h3>
+                <button class="modal-close-btn" onclick="closePlusMenu()">✕</button>
+            </div>
+            <div class="plus-menu-options">
+                <button class="plus-menu-btn pm-btn-blue" onclick="onPlusMenuSelect('generator')">
+                    <div class="pm-icon-wrap">
+                        <span class="pm-icon">📅</span>
+                    </div>
+                    <div class="pm-text">
+                        <span class="pm-title">Генератор на График</span>
+                        <span class="pm-sub">Попълни месеца автоматично</span>
+                    </div>
+                    <span class="pm-arrow">›</span>
+                </button>
+
+                <button class="plus-menu-btn pm-btn-green" onclick="onPlusMenuSelect('manual')">
+                    <div class="pm-icon-wrap">
+                        <span class="pm-icon">＋</span>
+                    </div>
+                    <div class="pm-text">
+                        <span class="pm-title">Добавяне на Смяна</span>
+                        <span class="pm-sub">Създай нова смяна ръчно</span>
+                    </div>
+                    <span class="pm-arrow">›</span>
+                </button>
+
+                <button class="plus-menu-btn pm-btn-purple" onclick="openCustomShiftsModal()" style="margin-bottom:0">
+                    <div class="pm-icon-wrap">
+                        <span class="pm-icon">⚙️</span>
+                    </div>
+                    <div class="pm-text">
+                        <span class="pm-title">Шаблони за смени</span>
+                        <span class="pm-sub">Добави или редактирай бързи смени</span>
+                    </div>
+                    <span class="pm-arrow">›</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════ CUSTOM SHIFTS (TEMPLATES) MODAL ════ -->
+    <div id="customShiftsModal" class="modal-overlay" hidden>
+        <div class="modal custom-shifts-modal">
+            <div class="modal-header">
+                <h3>⚙️ Шаблони за смени</h3>
+                <button class="modal-close-btn" onclick="closeCustomShiftsModal()">✕</button>
+            </div>
+            
+            <div class="modal-body-scroll" style="display:flex; flex-direction:column; gap:0.75rem; max-height: 60vh; overflow-y: auto; padding-right: 0.25rem; margin-top: 1rem;">
+                <div class="field-group">
+                    <label>Нов шаблон (Име)</label>
+                    <input type="text" id="pmTplName" placeholder="напр. Първа смяна" />
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                    <div class="field-group" style="flex:1">
+                        <label>Начало</label>
+                        <input type="time" id="pmTplStart" value="08:00" />
+                    </div>
+                    <div class="field-group" style="flex:1">
+                        <label>Край</label>
+                        <input type="time" id="pmTplEnd" value="16:00" />
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:flex-end;">
+                    <div class="field-group" style="flex:1">
+                        <label>Почивка (мин)</label>
+                        <input type="number" id="pmTplBreak" min="0" placeholder="0" />
+                    </div>
+                    <div class="field-group" style="flex:1.5">
+                        <div class="segmented-control" style="margin-bottom:0">
+                            <input type="radio" name="pmTplBreakType" id="pmTplBreakUnpaid" value="unpaid" checked>
+                            <label for="pmTplBreakUnpaid" style="padding:0.4rem 0.25rem">Неплатена</label>
+                            <input type="radio" name="pmTplBreakType" id="pmTplBreakPaid" value="paid">
+                            <label for="pmTplBreakPaid" style="padding:0.4rem 0.25rem">Платена</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>Ставка за шаблона и Валута</label>
+                    <div style="display:flex; gap:0.5rem">
+                        <input type="number" id="pmTplRate" step="0.1" placeholder="По подразбиране" style="flex:2" />
+                        <select id="pmTplCurrency" class="input-field" style="flex:1">
+                            <option value="">По подр.</option>
+                            <option value="лв.">лв.</option>
+                            <option value="€">€</option>
+                            <option value="$">$</option>
+                            <option value="£">£</option>
+                            <option value="₽">₽</option>
+                            <option value="CHF">CHF</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-sm btn-full" id="pmSaveTplBtn" style="margin-top:0.25rem">➕ Добави шаблон</button>
+                <div id="pmTplList" style="margin-top:0.75rem; display:flex; flex-direction:column; gap:0.5rem;"></div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; margin-top:1.5rem">
+                <button class="btn btn-ghost" onclick="closeCustomShiftsModal()">Отказ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════ SCHEDULE GENERATOR MODAL ════ -->
+    <div id="scheduleGenModal" class="modal-overlay" hidden>
+        <div class="modal schedule-gen-modal">
+            <div class="modal-header">
+                <h3>📅 Генератор на График</h3>
+                <button class="modal-close-btn" onclick="closeScheduleGenerator()">✕</button>
+            </div>
+
+            <div class="sg-field-row">
+                <label class="sg-label">Шаблон</label>
+                <select id="sgPattern" class="input-field" onchange="sgUpdatePreview()">
+                    <option value="2x2">2 на 2 (2 работа → 2 почивка)</option>
+                    <option value="3x1">3 на 1 (3 работа → 1 почивка)</option>
+                    <option value="5x2">5 на 2 (Работна седмица)</option>
+                    <option value="4x4">4 на 4 (4 работа → 4 почивка)</option>
+                    <option value="custom">Персонализиран</option>
+                </select>
+            </div>
+
+            <div id="sgCustomRow" class="sg-field-row" style="display:none">
+                <label class="sg-label">Работни / Почивни дни</label>
+                <div style="display:flex; gap:0.5rem; align-items:center">
+                    <input type="number" id="sgCustomWork" class="input-field" min="1" max="14" value="2" style="width:4rem" onchange="sgUpdatePreview()">
+                    <span style="color:var(--text-dim)">работа /</span>
+                    <input type="number" id="sgCustomRest" class="input-field" min="1" max="14" value="2" style="width:4rem" onchange="sgUpdatePreview()">
+                    <span style="color:var(--text-dim)">почивка</span>
+                </div>
+            </div>
+
+            <div class="sg-field-row">
+                <label class="sg-label">Тип смяна</label>
+                <select id="sgShiftTemplate" class="input-field">
+                    <option value="__default__">-- Профилна ставка --</option>
+                </select>
+            </div>
+
+            <div class="sg-field-row">
+                <label class="sg-label">Начална дата (1-ви работен ден)</label>
+                <input type="date" id="sgStartDate" class="input-field" onchange="sgUpdatePreview()">
+            </div>
+
+            <div class="sg-field-row">
+                <label class="sg-label">Период</label>
+                <select id="sgPeriod" class="input-field" onchange="sgUpdatePreview()">
+                    <option value="month">Текущ месец</option>
+                    <option value="next">Следващ месец</option>
+                    <option value="2months">2 месеца</option>
+                </select>
+            </div>
+
+            <!-- MINI PREVIEW -->
+            <div class="sg-preview-wrap">
+                <div class="sg-preview-label">Преглед (първи 14 дни)</div>
+                <div id="sgPreviewGrid" class="sg-preview-grid"></div>
+                <div id="sgPreviewSummary" class="sg-preview-summary"></div>
+            </div>
+
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.5rem">
+                <button class="btn btn-primary" onclick="generateSchedule()">Запази</button>
+                <button class="btn btn-ghost" onclick="closeScheduleGenerator()">Отказ</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="/src/app/script.js"></script>
 </body>
