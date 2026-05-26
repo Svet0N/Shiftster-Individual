@@ -216,15 +216,39 @@
 
 
                 <!-- 1. MONEY BAR -->
-                <div class="money-bar glass-card">
-                    <div class="money-bar-top">
-                        <span class="money-label">ОБЩО ЗА МЕСЕЦА</span>
-                        <span class="money-icon">💰</span>
+                <div class="money-bar glass-card" id="moneyBar">
+                    <!-- confetti particles (JS populated) -->
+                    <div class="mb-confetti" id="mbConfetti"></div>
+
+                    <!-- header row: label + expand button -->
+                    <div class="mb-header">
+                        <span class="mb-label" id="moneyBarLabel">ОБЩО ЗА МЕСЕЦА</span>
+                        <button class="mb-expand-btn" id="moneyExpandArrow" aria-label="Детайли">⌄</button>
                     </div>
-                    <div class="money-value" id="statSalary">0 лв.</div>
-                    <div class="money-meta">
-                        <span id="statRateSub" class="money-rate">при — лв./час</span>
-                        <span id="statForecast" class="money-forecast">+ 0 лв.</span>
+
+                    <!-- main (always visible) net number -->
+                    <div class="mb-amount-row">
+                        <span class="mb-num" id="statSalary">0 лв.</span>
+                    </div>
+
+                    <!-- collapsible detail rows -->
+                    <div class="mb-details" id="moneyBarDetails">
+                        <div id="statNetRow" class="mb-row" style="display:none">
+                            <span class="mb-row-label" id="statNetLabel">💰 Бруто</span>
+                            <span class="mb-row-val mb-green" id="statNetSalary">—</span>
+                        </div>
+                        <div id="statDeductRow" class="mb-row" style="display:none">
+                            <span class="mb-row-label">✂️ Удържани</span>
+                            <span class="mb-row-val mb-red" id="statDeductLabel">—</span>
+                        </div>
+                        <div class="mb-row">
+                            <span class="mb-row-label">⏱ Ставка</span>
+                            <span class="mb-row-val" id="statRateDetail">—</span>
+                        </div>
+                        <div class="mb-row">
+                            <span class="mb-row-label">📅 Очаквани</span>
+                            <span class="mb-row-val mb-accent" id="statForecast">—</span>
+                        </div>
                     </div>
                 </div>
 
@@ -491,7 +515,54 @@
                         </div>
                     </div>
 
-                    <!-- 4. Monthly Goal -->
+
+                    <!-- 4. Deductions -->
+                    <div class="glass-card settings-section">
+                        <h3 class="settings-title">💰 Удръжки от заплатата</h3>
+                        <p style="font-size:0.82rem; color:var(--text-dim); margin-bottom:0.75rem">Как се удържа от заплатата ти?</p>
+
+                        <div class="deduction-options">
+                            <label class="deduction-option" id="deductOptNone">
+                                <input type="radio" name="deductionType" value="none" id="deductNone" checked>
+                                <div class="deduction-option-body">
+                                    <span class="deduction-option-title">Без удръжки</span>
+                                    <span class="deduction-option-sub">Вземам брутното</span>
+                                </div>
+                            </label>
+
+                            <label class="deduction-option" id="deductOptPercent">
+                                <input type="radio" name="deductionType" value="percent" id="deductPercent">
+                                <div class="deduction-option-body">
+                                    <span class="deduction-option-title">Процент</span>
+                                    <span class="deduction-option-sub">% от брутното</span>
+                                </div>
+                                <div class="deduction-input-wrap" id="deductPercentWrap" style="display:none">
+                                    <input type="number" id="deductPercentVal" class="deduction-inline-input" min="0" max="100" step="0.5" placeholder="25" />
+                                    <span class="deduction-unit">%</span>
+                                </div>
+                            </label>
+
+                            <label class="deduction-option" id="deductOptFixed">
+                                <input type="radio" name="deductionType" value="fixed" id="deductFixed">
+                                <div class="deduction-option-body">
+                                    <span class="deduction-option-title">Фиксирана сума</span>
+                                    <span class="deduction-option-sub">Всеки месец</span>
+                                </div>
+                                <div class="deduction-input-wrap" id="deductFixedWrap" style="display:none">
+                                    <input type="number" id="deductFixedVal" class="deduction-inline-input" min="0" step="1" placeholder="200" />
+                                    <span class="deduction-unit" id="deductFixedCurrency">лв.</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <p class="deduction-tip">💡 Ако не знаеш точно, провери последния си фиш.</p>
+
+                        <div class="modal-footer" style="justify-content:flex-end; margin-top:0.75rem">
+                            <button class="btn btn-primary" id="saveDeductionsBtn">Запази</button>
+                        </div>
+                    </div>
+
+                    <!-- 5. Monthly Goal -->
                     <div class="glass-card settings-section">
                         <h3 class="settings-title">🎯 Месечна цел</h3>
                         <div class="field-group">

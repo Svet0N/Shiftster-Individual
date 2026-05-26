@@ -3401,65 +3401,119 @@ body.tutorial-active {
 }
 
 /* ══════════════════════════════════════════════
-   DASHBOARD FINTECH COMPONENTS
+   DASHBOARD — MONEY BAR (salary card)
    ══════════════════════════════════════════════ */
 .money-bar {
-  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  padding: 1.25rem 1.5rem;
   margin-bottom: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+  gap: 0.1rem;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, rgba(255,255,255,0.03) 100%);
   border: 1px solid rgba(var(--accent-rgb), 0.2);
   border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform var(--transition), border-color var(--transition);
+}
+.money-bar:hover { transform: translateY(-2px); border-color: rgba(var(--accent-rgb), 0.35); }
+
+/* Confetti container */
+.mb-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.mb-confetti-dot {
+  position: absolute;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  animation: mbConfettiFall 0.9s ease-out forwards;
+}
+@keyframes mbConfettiFall {
+  0%   { opacity: 1; transform: translateY(0) rotate(0deg); }
+  100% { opacity: 0; transform: translateY(70px) rotate(360deg); }
 }
 
-.money-bar-top {
+/* Header row */
+.mb-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 0.5rem;
 }
-
-.money-label {
+.mb-label {
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--text-dim);
 }
-
-.money-icon {
-  font-size: 1.4rem;
-  opacity: 0.8;
-}
-
-.money-value {
-  font-family: var(--mono);
-  font-size: 2.8rem;
-  font-weight: 500;
-  color: var(--accent);
+.mb-expand-btn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--text-dim);
+  cursor: pointer;
   line-height: 1;
-  margin: 0.25rem 0;
+  padding: 0;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), color var(--transition);
+}
+.mb-expand-btn:hover { color: var(--green); }
+.money-bar.expanded .mb-expand-btn { transform: rotate(180deg); color: var(--green); }
+
+/* Main amount row */
+.mb-amount-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.1rem;
+}
+.mb-num {
+  font-family: var(--font);
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: var(--green);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
-.money-meta {
+/* Collapsible details */
+.mb-details {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+.money-bar.expanded .mb-details {
+  max-height: 220px;
+  opacity: 1;
+}
+.mb-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
 }
-
-.money-rate {
-  font-size: 0.75rem;
+.mb-row-label {
+  font-size: 0.8rem;
   color: var(--text-dim);
+  font-weight: 500;
 }
-
-.money-forecast {
-  font-size: 0.85rem;
+.mb-row-val {
+  font-size: 0.88rem;
   font-weight: 700;
-  color: var(--accent);
-  background: rgba(var(--accent-rgb), 0.12);
-  padding: 0.2rem 0.6rem;
-  border-radius: 99px;
+  font-family: var(--font);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
+.mb-row-val.mb-green { color: var(--green); }
+.mb-row-val.mb-red   { color: var(--red); }
+.mb-row-val.mb-accent{ color: var(--accent); }
 
 /* 2-col mini grid */
 .dash-mini-grid {
@@ -3994,6 +4048,96 @@ body.tutorial-active {
 
 .plus-menu-btn:hover .pm-arrow.rotated {
   transform: rotate(90deg) translateY(-3px);
+}
+
+/* ═══════════════════════════════════════════
+   DEDUCTIONS SECTION
+═══════════════════════════════════════════ */
+.deduction-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.deduction-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+  background: rgba(255,255,255,0.02);
+}
+
+.deduction-option:hover {
+  border-color: var(--accent);
+  background: rgba(79, 141, 255, 0.06);
+}
+
+.deduction-option.active {
+  border-color: var(--accent);
+  background: rgba(79, 141, 255, 0.1);
+}
+
+.deduction-option input[type="radio"] {
+  accent-color: var(--accent);
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+
+.deduction-option-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.deduction-option-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.deduction-option-sub {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+}
+
+.deduction-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.deduction-inline-input {
+  width: 4.5rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.deduction-unit {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  min-width: 1.5rem;
+}
+
+.deduction-tip {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
 

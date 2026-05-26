@@ -1005,22 +1005,93 @@ async function renderDashboard() {
   }
 
   const salaryEl = document.getElementById('statSalary');
-  if (salaryEl) {
-    const currencies = Object.keys(financials.actualByCurrency);
-    if (currencies.length === 0) {
-      salaryEl.textContent = `0 лв.`;
-    } else {
-      salaryEl.style.fontSize = currencies.length > 1 ? '1.8rem' : '2.5rem';
-      salaryEl.innerHTML = currencies.map(c => `<div>${fmt(financials.actualByCurrency[c])} ${c}</div>`).join('');
+  const dType = state.profile?.deduction_type || 'none';
+  const dVal = parseFloat(state.profile?.deduction_value) || 0;
+  const netRow = document.getElementById('statNetRow');
+  const netSalaryEl = document.getElementById('statNetSalary');
+  const deductRow = document.getElementById('statDeductRow');
+  const deductLabelEl = document.getElementById('statDeductLabel');
+  const moneyLabel = document.getElementById('moneyBarLabel');
+  const netLabelEl = document.getElementById('statNetLabel');
+  const currencies = Object.keys(financials.actualByCurrency);
+
+  if (dType !== 'none' && dVal > 0) {
+    const grossTotal = financials.totalActual;
+    const cur = state.profile?.currency_code || 'лв.';
+    let deductAmt = 0;
+    if (dType === 'percent') {
+      deductAmt = grossTotal * (dVal / 100);
+    } else if (dType === 'fixed') {
+      deductAmt = dVal;
     }
+    const netTotal = Math.max(0, grossTotal - deductAmt);
+
+    // Big number = NET
+    if (salaryEl) {
+      salaryEl.style.fontSize = currencies.length > 1 ? '1.8rem' : '2.8rem';
+      const activeCur = currencies[0] || cur;
+      salaryEl.textContent = `${fmt(netTotal)} ${activeCur}`;
+    }
+    if (moneyLabel) moneyLabel.textContent = 'НЕТО ЗА МЕСЕЦА';
+
+    // Gross row in details
+    if (netRow && netSalaryEl) {
+      netSalaryEl.textContent = currencies.length === 0
+        ? `0 ${cur}`
+        : currencies.map(c => `${fmt(financials.actualByCurrency[c])} ${c}`).join(' + ');
+      if (netLabelEl) netLabelEl.textContent = '💰 Бруто';
+      netRow.style.display = 'flex';
+    }
+
+    // Deduction row in details
+    if (deductRow && deductLabelEl) {
+      deductLabelEl.textContent = dType === 'percent'
+        ? `-${fmt(deductAmt)} ${cur} (${dVal}%)`
+        : `-${fmt(deductAmt)} ${cur}`;
+      deductRow.style.display = 'flex';
+    }
+  } else {
+    // No deductions — show gross as main number
+    if (salaryEl) {
+      if (currencies.length === 0) {
+        salaryEl.textContent = `0 лв.`;
+      } else {
+        salaryEl.style.fontSize = currencies.length > 1 ? '1.8rem' : '2.8rem';
+        salaryEl.innerHTML = currencies.map(c => `<div>${fmt(financials.actualByCurrency[c])} ${c}</div>`).join('');
+      }
+    }
+    if (netRow) netRow.style.display = 'none';
+    if (deductRow) deductRow.style.display = 'none';
+    if (moneyLabel) moneyLabel.textContent = 'ОБЩО ЗА МЕСЕЦА';
   }
 
   const forecastEl = document.getElementById('statForecast');
   if (forecastEl) {
-    const totalForecast = financials.totalActual + financials.totalFuture;
-    forecastEl.textContent = `Очаквани💸: ${fmt(totalForecast)} ${state.profile?.currency_code || 'лв.'}`;
-    forecastEl.title = `Общ очакван доход за месеца (изработено + планирано)`;
+    const cur = state.profile?.currency_code || 'лв.';
+    const totalForecastGross = financials.totalActual + financials.totalFuture;
+    const dTypeF = state.profile?.deduction_type || 'none';
+    const dValF  = parseFloat(state.profile?.deduction_value) || 0;
+    let forecastDisplay = totalForecastGross;
+    if (dTypeF !== 'none' && dValF > 0) {
+      if (dTypeF === 'percent') {
+        forecastDisplay = totalForecastGross * (1 - dValF / 100);
+      } else {
+        forecastDisplay = Math.max(0, totalForecastGross - dValF);
+      }
+    }
+    forecastEl.textContent = `Очаквани: ${fmt(forecastDisplay)} ${cur}`;
+    forecastEl.title = `Общ очакван доход за месеца (${dTypeF !== 'none' ? 'нето' : 'бруто'})`;
   }
+
+  // Populate rate detail row inside collapsible
+  const rateDetailEl = document.getElementById('statRateDetail');
+  if (rateDetailEl) {
+    const rate = state.profile?.hourly_rate || DEFAULT_RATE;
+    const cur  = state.profile?.currency_code || 'лв.';
+    rateDetailEl.textContent = `${fmt(rate)} ${cur} / час`;
+  }
+
+
 
   const daysEl = document.getElementById('statDays');
   if (daysEl) {
@@ -1113,7 +1184,7 @@ async function renderDashboard() {
 
   const rate = state.profile?.hourly_rate || DEFAULT_RATE;
   const currency = state.profile?.currency_code || 'лв.';
-  document.getElementById('statRateSub').textContent = `при ${fmt(rate)} ${currency}/час`;
+  document.getElementById('statRateSub')?.textContent; // element now inside collapsible, populated via statRateDetail
   document.getElementById('dashMonthLabel').textContent = `${MONTHS_BG[state.viewMonth]} ${state.viewYear}`;
 
   const nightCount = financials.nightHours > 0 ? financials.nightHours : 0;
@@ -2375,6 +2446,25 @@ function renderProfile() {
     else lightRadio.checked = true;
   }
 
+  // Deductions
+  const dType = p.deduction_type || 'none';
+  const dVal = p.deduction_value || 0;
+  const dNone = document.getElementById('deductNone');
+  const dPercent = document.getElementById('deductPercent');
+  const dFixed = document.getElementById('deductFixed');
+  if (dNone && dPercent && dFixed) {
+    if (dType === 'percent') dPercent.checked = true;
+    else if (dType === 'fixed') dFixed.checked = true;
+    else dNone.checked = true;
+  }
+  const pValEl = document.getElementById('deductPercentVal');
+  if (pValEl && dType === 'percent') pValEl.value = dVal;
+  const fValEl = document.getElementById('deductFixedVal');
+  if (fValEl && dType === 'fixed') fValEl.value = dVal;
+  const fixedCurEl = document.getElementById('deductFixedCurrency');
+  if (fixedCurEl) fixedCurEl.textContent = p.currency_code || 'лв.';
+  updateDeductionsUI();
+
   renderCustomShifts();
 }
 
@@ -2771,6 +2861,35 @@ async function saveGoal(goal) {
   renderProfile();
   await renderDashboard();
   toast(`✓ Месечна цел: ${g} ч`, 'success');
+}
+
+async function saveDeductions() {
+  const type = document.querySelector('input[name="deductionType"]:checked')?.value || 'none';
+  let value = 0;
+  if (type === 'percent') {
+    value = parseFloat(document.getElementById('deductPercentVal')?.value) || 0;
+    if (value < 0 || value > 100) { toast('Невалиден процент (0-100)', 'error'); return; }
+  } else if (type === 'fixed') {
+    value = parseFloat(document.getElementById('deductFixedVal')?.value) || 0;
+    if (value < 0) { toast('Невалидна сума', 'error'); return; }
+  }
+  await dbSaveProfile({ deduction_type: type, deduction_value: value });
+  renderProfile();
+  await renderDashboard();
+  toast('✓ Удръжките са запазени', 'success');
+}
+
+function updateDeductionsUI() {
+  const type = document.querySelector('input[name="deductionType"]:checked')?.value || 'none';
+  const pWrap = document.getElementById('deductPercentWrap');
+  const fWrap = document.getElementById('deductFixedWrap');
+  if (pWrap) pWrap.style.display = type === 'percent' ? 'flex' : 'none';
+  if (fWrap) fWrap.style.display = type === 'fixed' ? 'flex' : 'none';
+  // Active highlight
+  ['None', 'Percent', 'Fixed'].forEach(t => {
+    const opt = document.getElementById(`deductOpt${t}`);
+    if (opt) opt.classList.toggle('active', type === t.toLowerCase());
+  });
 }
 
 /* ═══════════════════════════════════════════
@@ -3462,6 +3581,45 @@ function wireAppEvents() {
     if (input) saveGoal(input.value);
   });
 
+  // Deductions
+  document.querySelectorAll('input[name="deductionType"]').forEach(radio => {
+    radio.addEventListener('change', updateDeductionsUI);
+  });
+  document.getElementById('saveDeductionsBtn')?.addEventListener('click', saveDeductions);
+
+  // Money bar: expand toggle with confetti
+  document.getElementById('moneyExpandArrow')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const bar = document.getElementById('moneyBar');
+    if (!bar) return;
+    const opening = !bar.classList.contains('expanded');
+    bar.classList.toggle('expanded');
+    if (opening) {
+      // Confetti burst
+      const c = document.getElementById('mbConfetti');
+      if (c) {
+        c.innerHTML = '';
+        const colors = ['var(--green)', 'var(--accent)', 'var(--amber)', 'var(--purple)'];
+        for (let i = 0; i < 16; i++) {
+          const d = document.createElement('div');
+          d.className = 'mb-confetti-dot';
+          d.style.left = (8 + Math.random() * 84) + '%';
+          d.style.top  = (5 + Math.random() * 40) + '%';
+          d.style.background = colors[Math.floor(Math.random() * colors.length)];
+          d.style.animationDelay    = (Math.random() * 0.3) + 's';
+          d.style.animationDuration = (0.6 + Math.random() * 0.5) + 's';
+          c.appendChild(d);
+        }
+        setTimeout(() => { c.innerHTML = ''; }, 1200);
+      }
+    }
+  });
+  // Clicking the card body (not the btn) also toggles
+  document.getElementById('moneyBar')?.addEventListener('click', (e) => {
+    if (e.target.closest('#moneyExpandArrow')) return;
+    document.getElementById('moneyExpandArrow')?.click();
+  });
+
   // Color swatches
   document.querySelectorAll('.color-swatch').forEach(sw => {
     sw.addEventListener('click', async () => {
@@ -4121,6 +4279,8 @@ window.onboardingSelectRole = onboardingSelectRole;
 window.showOnboarding = showOnboarding;
 window.saveHours = saveHours;
 window.saveGoal = saveGoal;
+window.saveDeductions = saveDeductions;
+window.updateDeductionsUI = updateDeductionsUI;
 window.saveRate = saveRate;
 window.exportCSV = exportCSV;
 window.exportPDF = exportPDF;
