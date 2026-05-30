@@ -1340,10 +1340,7 @@ body.light-mode .topbar {
   color: #fff;
 }
 
-/* ── Chart preview ── */
-.chart-preview-card {
-  margin-bottom: 1.25rem;
-}
+
 
 /* ── Export row ── */
 .export-row {

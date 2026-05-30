@@ -1191,7 +1191,6 @@ async function renderDashboard() {
   const forecastTotal = financials.hoursWorked + financials.hoursPlanned;
   renderGoalProgress(financials.hoursWorked, forecastTotal);
   renderBadges(financials.hoursWorked, financials.days, nightCount);
-  renderMiniChart();
   renderRecentShifts();
   checkUnconfirmedShifts();
 
@@ -1398,62 +1397,7 @@ function renderBadges(totalHours, totalDays, nightCount = 0) {
   });
 }
 
-/* ── Mini week chart ── */
-function renderMiniChart() {
-  const ctx = document.getElementById('weekMiniChart')?.getContext('2d');
-  if (!ctx) return;
-  if (state.charts.mini) state.charts.mini.destroy();
 
-  const labels = ['Пон', 'Вт', 'Ср', 'Чет', 'Пет', 'Съб', 'Нед'];
-  const values = [0, 0, 0, 0, 0, 0, 0];
-
-  const now = new Date();
-  const day = now.getDay();
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  const start = new Date(now.setDate(diff));
-
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    const dk = d.toISOString().split('T')[0];
-    const dayArr = state.entries[dk] || [];
-    dayArr.forEach(entry => {
-      values[i] += entry.hours || 0;
-    });
-  }
-
-  const isDark = document.body.classList.contains('dark-mode');
-  state.charts.mini = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        backgroundColor: values.map(v => v > 0 ? 'rgba(79,141,255,0.7)' : 'rgba(255,255,255,0.05)'),
-        borderRadius: 6,
-        borderSkipped: false,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw}ч` } } },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: isDark ? '#7777aa' : '#5555aa', font: { size: 10 } } },
-        y: {
-          beginAtZero: true, grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' },
-          ticks: { color: isDark ? '#7777aa' : '#5555aa', font: { size: 10 } }
-        }
-      }
-    }
-  });
-
-  // Toggle Placeholder if no data this week
-  const hasWeekData = values.some(v => v > 0);
-  const placeholder = document.getElementById('chartPlaceholderText');
-  if (placeholder) {
-    placeholder.style.display = hasWeekData ? 'none' : 'block';
-  }
-}
 
 /* ═══════════════════════════════════════════
    CALENDAR
@@ -2140,7 +2084,6 @@ async function renderHistoryDetail(ym) {
 async function renderCharts() {
   renderBarChart();
   await renderLineChart();
-  renderMiniChart();
 }
 
 function chartBaseOpts(xLabel, yLabel) {
